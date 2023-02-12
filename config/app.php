@@ -182,7 +182,7 @@ return [
         Illuminate\Validation\ValidationServiceProvider::class,
         Illuminate\View\ViewServiceProvider::class,
         Barryvdh\DomPDF\ServiceProvider::class,
-
+        Mccarlosen\LaravelMpdf\LaravelMpdfServiceProvider::class,
         /*
          * Package Service Providers...
          */
@@ -195,6 +195,7 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
+        Barryvdh\Snappy\ServiceProvider::class,
 
     ],
 
@@ -211,7 +212,10 @@ return [
 
     'aliases' => Facade::defaultAliases()->merge([
         // 'ExampleClass' => App\Example\ExampleClass::class,
-        'PDF' => Barryvdh\DomPDF\Facade::class,
+        // 'DPDF' => Barryvdh\DomPDF\Facade::class,
+        // 'PDF' => Mccarlosen\LaravelMpdf\Facades\LaravelMpdf::class
+        'PDF' => Barryvdh\Snappy\Facades\SnappyPdf::class,
+'SnappyImage' => Barryvdh\Snappy\Facades\SnappyImage::class,
 
     ])->toArray(),
 

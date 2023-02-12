@@ -15,7 +15,7 @@
                     @endif
 
                     {{ __('You are logged in!') }}
-                    <a href="javascript:void(0)" class="nav-link" onclick="export2Pdf()">Download PDF</a>
+                    <a href="javascript:void(0)" class="nav-link" onclick="export2Pdf()">@lang Certificate</a>
                                 </div>
             </div>
         </div>
