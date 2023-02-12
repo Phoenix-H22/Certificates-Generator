@@ -29,7 +29,7 @@
     const export2Pdf = async () => {
       let printHideClass = document.querySelectorAll('.print-hide');
       printHideClass.forEach(item => item.style.display = 'none');
-      await fetch('https://certificates-generator.test/export-pdf', {
+      await fetch('{{url("export-pdf")}}', {
         method: 'GET'
       }).then(response => {
         if (response.ok) {
