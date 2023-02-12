@@ -27,8 +27,8 @@ class PdfController extends Controller
 
         $snappy->generateFromHtml($html, public_path().'/'.$name.$time.'.pdf');
         // i want to download the file directly and return to the home page after download
-        return Response::download(public_path().'/'.$name.$time.'.pdf');
-        
+        return Response::download(public_path().'/'.$name.random_int("100","25300").'.pdf');
+
 
 
         // download
