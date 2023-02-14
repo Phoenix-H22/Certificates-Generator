@@ -11316,7 +11316,7 @@ video.bg-video {
   width: auto;
   height: auto;
   transform: translateX(-50%) translateY(-50%);
-  z-index: 0;
+  z-index: -999999999999999999999999;
 }
 
 @media (pointer: coarse) and (hover: none) {

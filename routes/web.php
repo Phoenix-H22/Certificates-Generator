@@ -21,13 +21,14 @@ Route::get('/', function () {
 
 Auth::routes();
 
-Route::get('/home', [HomeController::class, 'index'])->name('home');
+Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth');
 
 Auth::routes();
 
-Route::get('/home', [HomeController::class, 'index'])->name('home');
-Route::get('/cert', [HomeController::class, 'cert'])->name('certificate');
-Route::get('/pdf', [PdfController::class, 'index']);
-Route::get('/export-pdf', [PdfController::class, 'exportPdf']);
+Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth');
+Route::get('/cert', [HomeController::class, 'cert'])->name('certificate')->middleware('auth');
+Route::get('/pdf', [PdfController::class, 'index'])->middleware('auth');
+Route::get('/export-pdf', [PdfController::class, 'exportPdf'])->middleware('auth');
+Route::post('/news', [HomeController::class, 'news']);
 
 
