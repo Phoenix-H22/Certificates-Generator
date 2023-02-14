@@ -15,6 +15,7 @@
                     @endif
 
                     {{ __('You are logged in!') }}
+                    <br>
                     <a href="{{url("export-pdf")}}" class="btn btn-primary" id="download-cert">Download Certificate</a>
                     </div>
             </div>
