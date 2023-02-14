@@ -25,9 +25,14 @@ class PdfController extends Controller
         // get the time now only
         // $time = Carbon::now()->format('i');
         $time = random_int(1000, 222000);
-        $snappy->generateFromHtml($html, public_path().'/pdf-docs/'.$name.$time.'.pdf');
+        $file_name = $name.$time.'.pdf';
+        $file_path = public_path().'/pdf-docs/';
+        $snappy->generateFromHtml($html, $file_path.$file_name);
         // i want to download the file directly and return to the home page after download
-        return Response::download(public_path().'/pdf-docs/'.$name.$time.'.pdf');
+        $headers = array(
+            'Content-Type: application/pdf',
+          );
+        return Response::download($file_path.$file_name,$file_name ,$headers);
 
 
 
