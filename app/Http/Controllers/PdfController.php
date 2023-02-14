@@ -20,7 +20,7 @@ class PdfController extends Controller
     public function exportPdf(Request $request) {
         $snappy = App::make('snappy.pdf');
         //To file
-        $name = utf8_encode(Auth::user()->name);
+        $name = base64_encode(Auth::user()->name);
         $html = view('certificate',compact('name'))->render();
         // get the time now only
         // $time = Carbon::now()->format('i');
