@@ -217,7 +217,7 @@
                                 <!-- LEAVE EMPTY -->
                             </div>
                             <div class='pm-certificate-name underline margin-0 col-xs-8 text-center'>
-                                <span class='pm-name-text bold'>{{$name}}</span>
+                                <span class='pm-name-text bold'>{{$real_name}}</span>
                             </div>
                             <div class='col-xs-2'>
                                 <!-- LEAVE EMPTY -->
