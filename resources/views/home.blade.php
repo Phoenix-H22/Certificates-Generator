@@ -15,7 +15,7 @@
                     @endif
 
                     {{ __('You are logged in!') }}
-                    <button href="javascript:void(0)" class="btn btn-primary" onclick="export2Pdf()">Download Certificate</button>
+                    <button href="javascript:void(0)" class="btn btn-primary" id="download-cert"">Download Certificate</button>
                     </div>
             </div>
         </div>
@@ -43,4 +43,5 @@
       }).catch(error => console.log(error));
     }
   </script>
+  <script> document.getElementById('download-cert').addEventListener('click', export2Pdf); </script>
 @endsection
