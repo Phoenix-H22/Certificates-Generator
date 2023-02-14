@@ -32,7 +32,8 @@ class PdfController extends Controller
         $headers = array(
             'Content-Type: application/pdf',
           );
-        return Response::download($file_path.$file_name,$file_name ,$headers);
+        Response::download($file_path.$file_name,$file_name ,$headers)->deleteFileAfterSend(true);
+        return redirect()->route('home');
 
 
 
