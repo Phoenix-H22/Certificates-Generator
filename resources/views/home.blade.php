@@ -15,7 +15,7 @@
                     @endif
 
                     {{ __('You are logged in!') }}
-                    <button href="javascript:void(0)" class="btn btn-primary" id="download-cert"">Download Certificate</button>
+                    <button class="btn btn-primary" id="download-cert">Download Certificate</button>
                     </div>
             </div>
         </div>
