@@ -22,6 +22,5 @@ Homestead.json
 /.vagrant
 .phpunit.result.cache
 config/snappy.php
-config/snappy.php
-config/snappy.php
-config/snappy.php
+public/pdf-docs
+.idea/

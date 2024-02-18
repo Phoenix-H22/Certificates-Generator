@@ -35,9 +35,5 @@ class PdfController extends Controller
           );
         return Response::download($file_path.$file_name,$file_name ,$headers);
 
-
-
-        // download
-
 }
 }
