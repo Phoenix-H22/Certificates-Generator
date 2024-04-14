@@ -58,6 +58,7 @@ class PdfController extends Controller
     {
         // Load and replace placeholders in the DOCX
         $templateProcessor = new TemplateProcessor(public_path('Certificate_template.docx'));
+        // make the file rtl for arabic
         $templateProcessor->setValue('{Name}', Auth::user()->name);
         $templateProcessor->setValue('{Title}', 'DR');
         // save the file
@@ -84,7 +85,7 @@ class PdfController extends Controller
 
         $path = $newFilePath;
         // Prepare the command
-        $command = "libreoffice --headless --convert-to pdf:draw_pdf_Export --outdir {$outputDir} {$path}";
+        $command = "libreoffice --headless --convert-to pdf:calc_pdf_Export --outdir {$outputDir} {$path}";
 
         // Run the command
         $process = Process::fromShellCommandline($command);
