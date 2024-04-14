@@ -82,7 +82,7 @@ class PdfController extends Controller
 
         $path = public_path('Certificate_template.docx');
         // Prepare the command
-        $command = "libreoffice --headless --convert-to pdf --outdir {$outputDir} {$path}";
+        $command = "libreoffice --headless --convert-to pdf --outdir {$pdfPath} {$path}";
 
         // Run the command
         $process = Process::fromShellCommandline($command);
