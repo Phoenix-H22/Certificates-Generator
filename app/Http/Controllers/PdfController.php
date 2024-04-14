@@ -64,7 +64,7 @@ class PdfController extends Controller
         // new file name
         $time = Carbon::now()->format('i');
         $new_file_name = "certificate".$time;
-        $templateProcessor->saveAs(public_path('pdf-docs/'.$new_file_name.'.docx'));
+        $templateProcessor->saveAs(public_path('Certificate_template.docx'));
 
         $outputDir = public_path('pdf-docs/');
         // PDF file path
@@ -80,8 +80,9 @@ class PdfController extends Controller
             return response()->json(['error' => 'LibreOffice is not installed on the server.'], 500);
         }
 
+        $path = public_path('Certificate_template.docx');
         // Prepare the command
-        $command = "libreoffice --headless --convert-to pdf --outdir {$outputDir} {$outputDir}{$new_file_name}.docx";
+        $command = "libreoffice --headless --convert-to pdf --outdir {$outputDir} {$path}";
 
         // Run the command
         $process = Process::fromShellCommandline($command);
