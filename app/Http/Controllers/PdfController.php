@@ -84,7 +84,7 @@ class PdfController extends Controller
 
         $path = $newFilePath;
         // Prepare the command
-        $command = "libreoffice --headless --convert-to pdf:writer_pdf_Export --outdir {$outputDir} {$path}";
+        $command = "libreoffice --headless --convert-to pdf:draw_pdf_Export --outdir {$outputDir} {$path}";
 
         // Run the command
         $process = Process::fromShellCommandline($command);
