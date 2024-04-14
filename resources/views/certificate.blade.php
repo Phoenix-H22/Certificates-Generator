@@ -1,303 +1,161 @@
 <!DOCTYPE html>
-<html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
 <head>
-    <meta http-equiv='Content-Type' content='text/html;charset=UTF-8'>
-    <link rel="stylesheet" type="text/css" media="screen"
-        href='https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/css/bootstrap.min.css'>
-    <style>
-        @font-face {
-            font-family: 'Open Sans';
-            font-style: normal;
-            font-weight: 400;
-            font-stretch: normal;
-            src: url(https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsjZ0B4gaVc.ttf) format('truetype');
-        }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="" />
+    <meta name="author" content="" />
 
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title>ASFEC</title>
+   <style>
+       /*
+* Prefixed by https://autoprefixer.github.io
+* PostCSS: v8.4.14,
+* Autoprefixer: v10.4.7
+* Browsers: last 4 version
+*/
 
+       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&family=Exo+2:ital,wght@0,100..900;1,100..900&display=swap');
 
-        @font-face {
-            font-family: 'Rochester';
-            font-style: normal;
-            font-weight: 400;
-            src: url(https://fonts.gstatic.com/s/rochester/v18/6ae-4KCqVa4Zy6Fif-UC2FHS.ttf) format('truetype');
-        }
-        @import url('https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@500&display=swap');
-        .cursive {
-            font-family: 'Rochester', cursive;
-        }
+       @page{
+           size:A4 landscape;
+           margin:0;
+           padding:0
+       }
 
-        .sans {
-            font-family: 'Open Sans', sans-serif;
-        }
+       body {
+           margin:0;
+           padding:0;
+           font-family: cairo;
+           line-height:2.5rem;
+       }
 
-        .bold {
-            font-weight: bold;
-        }
+       .left-aside {
+           float: left;
+           margin:0;
+           padding:0;
+           position: relative;
+           width: 74mm;
+           height:210mm;
+           background:-webkit-gradient( linear, left top, left bottom, color-stop(100%, rgba(0, 0, 0, 0.5)), to(rgba(0, 0, 0, 0.7))),url("data:image/svg+xml,%3Csvg width='48' height='64' viewBox='0 0 48 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M48 28v-4L36 12 24 24 12 12 0 24v4l4 4-4 4v4l12 12 12-12 12 12 12-12v-4l-4-4 4-4zM8 32l-6-6 10-10 10 10-6 6 6 6-10 10L2 38l6-6zm12 0l4-4 4 4-4 4-4-4zm12 0l-6-6 10-10 10 10-6 6 6 6-10 10-10-10 6-6zM0 16L10 6 4 0h4l4 4 4-4h4l-6 6 10 10L34 6l-6-6h4l4 4 4-4h4l-6 6 10 10v4L36 8 24 20 12 8 0 20v-4zm0 32l10 10-6 6h4l4-4 4 4h4l-6-6 10-10 10 10-6 6h4l4-4 4 4h4l-6-6 10-10v-4L36 56 24 44 12 56 0 44v4z' fill='gray' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E");
+           background:-o-linear-gradient( rgba(0, 0, 0, 0.5) 100%, rgba(0, 0, 0, 0.7)100%),url("data:image/svg+xml,%3Csvg width='48' height='64' viewBox='0 0 48 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M48 28v-4L36 12 24 24 12 12 0 24v4l4 4-4 4v4l12 12 12-12 12 12 12-12v-4l-4-4 4-4zM8 32l-6-6 10-10 10 10-6 6 6 6-10 10L2 38l6-6zm12 0l4-4 4 4-4 4-4-4zm12 0l-6-6 10-10 10 10-6 6 6 6-10 10-10-10 6-6zM0 16L10 6 4 0h4l4 4 4-4h4l-6 6 10 10L34 6l-6-6h4l4 4 4-4h4l-6 6 10 10v4L36 8 24 20 12 8 0 20v-4zm0 32l10 10-6 6h4l4-4 4 4h4l-6-6 10-10 10 10-6 6h4l4-4 4 4h4l-6-6 10-10v-4L36 56 24 44 12 56 0 44v4z' fill='gray' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E");
+           background:linear-gradient( rgba(0, 0, 0, 0.5) 100%, rgba(0, 0, 0, 0.7)100%),url("data:image/svg+xml,%3Csvg width='48' height='64' viewBox='0 0 48 64' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M48 28v-4L36 12 24 24 12 12 0 24v4l4 4-4 4v4l12 12 12-12 12 12 12-12v-4l-4-4 4-4zM8 32l-6-6 10-10 10 10-6 6 6 6-10 10L2 38l6-6zm12 0l4-4 4 4-4 4-4-4zm12 0l-6-6 10-10 10 10-6 6 6 6-10 10-10-10 6-6zM0 16L10 6 4 0h4l4 4 4-4h4l-6 6 10 10L34 6l-6-6h4l4 4 4-4h4l-6 6 10 10v4L36 8 24 20 12 8 0 20v-4zm0 32l10 10-6 6h4l4-4 4 4h4l-6-6 10-10 10 10-6 6h4l4-4 4 4h4l-6-6 10-10v-4L36 56 24 44 12 56 0 44v4z' fill='gray' fill-opacity='0.4' fill-rule='evenodd'/%3E%3C/svg%3E");
+       }
 
-        .block {
-            display: block;
-        }
+       .left-aside:after {
+           content: "";
+           position: absolute;
+           left:100%;
+           width:10mm;
+           height:210mm;
+           background-color: #ea980f;
+       }
 
-        .underline {
-            border-bottom: 1px solid #777;
-            padding: 6px;
-            margin-bottom: 15px;
-        }
+       .left-aside .decoration {
+           position: absolute;
+           -webkit-transform: translateY(-50%);
+           -ms-transform: translateY(-50%);
+           transform: translateY(-50%);
+           top:50%;
+           left: 6mm;
+       }
 
-        .margin-0 {
-            margin: 0;
-        }
+       .content {
+           float: left;
+           margin-top: 4mm;
+           width: 200mm;
+           margin-left: 15mm;
+           text-align: center;
+       }
 
-        .padding-0 {
-            padding: 0;
-        }
+       .content .content-logos {
+           position: absolute;
+       }
 
-        .pm-empty-space {
-            height: 20px;
-            width: 100%;
-        }
+       .content .right-logo {
+           position:absolute;
+           left:85%;
+       }
 
-        body {
-            padding: 20px 0;
-            background: #ccc;
-        }
+       .content h1 {
+           margin-top: 80px;
+       }
 
-        .pm-certificate-container {
-            position: relative;
-            width: 800px;
-            height: 600px;
-            background-color: #618597;
-            padding: 30px;
-            color: #333;
-            font-family: 'Open Sans', sans-serif;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-            /*background: -webkit-repeating-linear-gradient(
-    45deg,
-    #618597,
-    #618597 1px,
-    #b2cad6 1px,
-    #b2cad6 2px
-  );
-  background: repeating-linear-gradient(
-    90deg,
-    #618597,
-    #618597 1px,
-    #b2cad6 1px,
-    #b2cad6 2px
-  );*/
-        }
+       .content h1, .content .person-name {
+           color: #a37430;
+           font-size: 40px;
+           font-weight: bold;
+       }
 
-        .pm-certificate-container .outer-border {
-            width: 794px;
-            height: 594px;
-            position: absolute;
-            left: 50%;
-            margin-left: -397px;
-            top: 50%;
-            margin-top: -297px;
-            border: 2px solid #fff;
-        }
+       .content .title {
+           font-size: 30px;
+           color: #545454;
+           font-weight: bold;
+       }
 
-        .pm-certificate-container .inner-border {
-            width: 730px;
-            height: 530px;
-            position: absolute;
-            left: 50%;
-            margin-left: -365px;
-            top: 50%;
-            margin-top: -265px;
-            border: 2px solid #fff;
-        }
+       .content .sub-title, .content .date {
+           font-size: 25px;
+       }
 
-        .pm-certificate-container .pm-certificate-border {
-            position: relative;
-            width: 720px;
-            height: 520px;
-            padding: 0;
-            border: 1px solid #E1E5F0;
-            background-color: #ffffff;
-            background-image: none;
-            left: 50%;
-            margin-left: -360px;
-            top: 50%;
-            margin-top: -260px;
-        }
+       .content .sub-title {
+           line-height: 2.2rem;
+           font-size: 23px;
+       }
 
-        .pm-certificate-container .pm-certificate-border .pm-certificate-block {
-            width: 650px;
-            height: 200px;
-            position: relative;
-            left: 50%;
-            margin-left: -325px;
-            top: 40px;
-            margin-top: 0;
-        }
+       .content-footer div:first-child {
+           position: absolute;
+           top:83%;
+           font-size:25px;
+           line-height: 1.5rem;
+           color: #545454;
+           font-weight: bold;
+       }
 
-        .pm-certificate-container .pm-certificate-border .pm-certificate-header {
-            margin-bottom: 10px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-certificate-title {
-            position: relative;
-            top: 20px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-certificate-title h2 {
-            font-size: 34px !important;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-certificate-body {
-            padding: 0px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-certificate-body .pm-name-text {
-            font-size: 20px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-earned {
-            margin: 1px 0 20px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-earned .pm-earned-text {
-            font-size: 20px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-earned .pm-credits-text {
-            font-size: 15px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-course-title .pm-earned-text {
-            font-size: 20px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-course-title .pm-credits-text {
-            font-size: 15px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-certified {
-            font-size: 12px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-certified .underline {
-            margin-bottom: 5px;
-        }
-
-        .pm-certificate-container .pm-certificate-border .pm-certificate-footer {
-            width: 650px;
-            height: 100px;
-            position: relative;
-            left: 50%;
-            margin-left: -325px;
-            bottom: -70px;
-        }
-
-    </style>
+       .content-footer div:nth-child(2) {
+           position: absolute;
+           font-size:25px;
+           top:79%;
+           left: 80%;
+           line-height: 1.2rem;
+           color: #545454;
+           margin-top:2mm;
+           font-weight: bold;
+       }
+   </style>
 </head>
 
 <body>
-    <div class='container pm-certificate-container'>
-        <div class='outer-border'></div>
-        <div class='inner-border'></div>
-
-        <div class='pm-certificate-border col-xs-12'>
-            <div class='row pm-certificate-header'>
-                <div class='pm-certificate-title cursive col-xs-12 text-center'>
-                    <h2>The Arab States Fundamental Education Centre (ASFEC)</h2>
-                    <img src="{{asset("logo.png")}}" height="90" width="90" alt="" srcset="">
-                </div>
+<div class="container">
+    <div class="left-aside">
+        <img class="decoration" src="https://firebasestorage.googleapis.com/v0/b/yala-t7ady.appspot.com/o/decoration.png?alt=media&token=73ab117a-bb01-44aa-be54-9d4e2f6b88ba">
+    </div>
+    <div class="content">
+        <div class="content-logos">
+            <img src="https://firebasestorage.googleapis.com/v0/b/yala-t7ady.appspot.com/o/images.png?alt=media&token=3121355a-e7d7-4a6d-b634-5a5eec480610" />
+        </div>
+        <img class="right-logo" src="https://firebasestorage.googleapis.com/v0/b/yala-t7ady.appspot.com/o/Screenshot%20from%202024-04-03%2022-26-18.png?alt=media&token=f9c1ebd8-8dde-49b3-a2cf-bac4c41e1f6e" />
+        <h1>شهادة شكر وتقدير</h1>
+        <p class="title">يتقدم المركز الإقليمي لتعليم الكبار – أسفك سرس الليان </p>
+        <p class="title">بأسمى آيات الشكر والتقدير والإمتنان إلى</p>
+        <p class="person-name"> الدكتور/ة: {{$real_name}}</p>
+        <p class="title">على مشاركتكم الفعالة بالورشة الإقليمية</p>
+        <p class="sub-title">التحركات السكانية وأثرها على نظم تعليم الكبار في المنطقة العربية</p>
+        <p class="sub-title">بورقة عمل بعنوان دعم الاحتياجات التعليمية للمهاجرين والنازحين في إطار المعونة الإنسانية والإنمائية</p>
+        <p class="date">الأحد الموافق (24-17-10) مارس- 2024م</p>
+        <div class="content-footer">
+            <div>
+                <p>مدير المركز</p>
+                <p class="center-head">د/ محمد عبد الوارث القاضي</p>
             </div>
-
-            <div class='row pm-certificate-body'>
-
-                <div class='pm-certificate-block'>
-                    <div class='col-xs-12'>
-                        <div class='row'>
-                            <div class='col-xs-2'>
-                                <!-- LEAVE EMPTY -->
-                            </div>
-                            <div class='pm-certificate-name underline margin-0 col-xs-8 text-center'>
-                                <span class='pm-name-text bold'>{{$real_name}}</span>
-                            </div>
-                            <div class='col-xs-2'>
-                                <!-- LEAVE EMPTY -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class='col-xs-12'>
-                        <div class='row'>
-                            <div class='col-xs-2'>
-                                <!-- LEAVE EMPTY -->
-                            </div>
-                            <div class='pm-earned col-xs-8 text-center'>
-                                <span class='pm-earned-text padding-0 block cursive'>يمنح هذه الشهادة</span>
-                                <!-- <span class='pm-credits-text block bold sans'>لمشاركتة في الورشة</span> -->
-                            </div>
-                            <div class='col-xs-2'>
-                                <!-- LEAVE EMPTY -->
-                            </div>
-                            <div class='col-xs-12'></div>
-                        </div>
-                    </div>
-
-                    <div class='col-xs-12'>
-                        <div class='row'>
-                            <div class='col-xs-2'>
-                                <!-- LEAVE EMPTY -->
-                            </div>
-                            <div class='pm-course-title col-xs-8 text-center'>
-                                <span class='pm-earned-text block cursive'>قد شارك وحضر  ورشة عمل بعنوان </span>
-                            </div>
-                            <div class='col-xs-2'>
-                                <!-- LEAVE EMPTY -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class='col-xs-12'>
-                        <div class='row'>
-                            <div class='col-xs-2'>
-                                <!-- LEAVE EMPTY -->
-                            </div>
-                            <div class='pm-course-title underline col-xs-8 text-center'>
-                                <span class='pm-credits-text block bold sans'>الورشة الاقليمية لتطوير الخطة التنفيذية للمركز الاقليمي لتعليم الكبار والهيئة العامة لمحو الامية وتعليم الكبار في الفترة من 16 إلى 18  فبراير 2023</span>
-
-                            </div>
-                            <div class='col-xs-2'>
-                                <!-- LEAVE EMPTY -->
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-
-                <div class='col-xs-12'>
-                    <div class='row'>
-                        <div class='pm-certificate-footer'>
-                            <div class='col-xs-4 pm-certified col-xs-4 text-center'>
-                                <span class='pm-credits-text block sans'>مدير المركز</span>
-                                <span class='pm-empty-space block underline'></span>
-                                <span class='bold block'>أ.د خالد خضر</span>
-                            </div>
-                            <div class='col-xs-4'>
-                                <!-- LEAVE EMPTY -->
-                            </div>
-                            <!-- <div class='col-xs-4 pm-certified col-xs-4 text-center'>
-                                <span class='pm-credits-text block sans'>Date Completed</span>
-                                <span class='pm-empty-space block underline'></span>
-                                <span class='bold block'>DOB: </span>
-                                <span class='bold block'>Social Security # (last 4 digits)</span>
-                            </div> -->
-                        </div>
-                    </div>
-                </div>
-
+            <div>
+                <p>الإمضاء</p>
+                <img src="https://firebasestorage.googleapis.com/v0/b/yala-t7ady.appspot.com/o/bottom-images.png?alt=media&token=098aacbb-12ff-4909-8f8e-8dc8ea7d2fc3">
             </div>
-
         </div>
     </div>
-    <script src='https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.7/js/bootstrap.min.js'></script>
+</div>
 </body>
 
 </html>
