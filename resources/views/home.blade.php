@@ -38,6 +38,9 @@
                         <br>
                         <br>
                         <br>
+                        @if(session('success'))
+                            <div class="alert alert-success">{{session('success')}}</div>
+                        @endif
                         {{--  Upload docx certificate users excel --}}
                         <form action="{{route('upload-sheet')}}" method="post" enctype="multipart/form-data">
                             @csrf
