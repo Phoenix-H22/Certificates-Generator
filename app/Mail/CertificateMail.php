@@ -5,8 +5,6 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 class CertificateMail extends Mailable
@@ -26,32 +24,17 @@ class CertificateMail extends Mailable
         $this->email = $email;
     }
 
-    public function envelope()
+    public function build()
     {
-        return new Envelope(
-            subject: 'شهادة حضور'
-        );
-    }
-
-    public function content()
-    {
-        return new Content(
-            view: 'emails.cert',
-            with: [
+        return $this->subject('شهادة حضور')
+            ->view('emails.cert')
+            ->with([
                 'name' => $this->name,
                 'title' => $this->title
-            ]
-        );
-    }
-
-    public function attachments()
-    {
-        return [
-            [
-                'file' => $this->pdfPath,
-                'as' => 'شهادة_حضور'. $this->title . '_' . $this->name . '.pdf',
+            ])
+            ->attach($this->pdfPath, [
+                'as' => 'certificate.pdf',
                 'mime' => 'application/pdf',
-            ]
-        ];
+            ]);
     }
 }
