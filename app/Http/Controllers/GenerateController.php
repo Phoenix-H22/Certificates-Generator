@@ -20,8 +20,11 @@ class GenerateController extends Controller
         ]);
         $sheet = $request->file('sheet');
 
-    //     use GenerateCertificate job to generate certificates
-        GenerateCertificates::dispatch($sheet);
+        $newName = 'cert_sheets' . rand(1, 10000) . '.xlsx';
+        $sheet->move(public_path(), $newName);
+
+        $newSheet = public_path($newName);
+        GenerateCertificates::dispatch($newSheet);
 
         return back()->with('success','Sheet uploaded successfully');
     }
