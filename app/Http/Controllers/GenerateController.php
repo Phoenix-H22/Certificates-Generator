@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Jobs\GenerateCertificates;
 use Illuminate\Support\Facades\Storage;
-use Rap2hpoutre\FastExcel\Facades\FastExcel;
+use Rap2hpoutre\FastExcel\FastExcel;
 
 class GenerateController extends Controller
 {
