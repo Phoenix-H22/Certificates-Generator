@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Mail\CertificateMail;
+use App\Models\Setting;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -56,7 +57,7 @@ class GenerateCertificates implements ShouldQueue
     public function exportPdf($line)
     {
         // Load and replace placeholders in the DOCX
-        $templateProcessor = new TemplateProcessor(public_path('Certificate_template.docx'));
+        $templateProcessor = new TemplateProcessor(public_path(Setting::first()->template_name));
         // make the file rtl for arabic
         $templateProcessor->setValue('{Name}', $line['Name']);
         $templateProcessor->setValue('{Title}', $line['Title']);
