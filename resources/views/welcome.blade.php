@@ -98,8 +98,8 @@
     <div class="social-icons">
         <div class="d-flex flex-row flex-lg-column justify-content-center align-items-center h-100 mt-3 mt-lg-0">
             <a class="btn btn-dark m-3" href="https://www.facebook.com/asfec.unesco.3"><i class="fab fa-facebook-f"></i></a>
-            <a class="btn btn-dark m-3" href="{{url("login")}}">Login</a>
-            <a class="btn btn-dark m-3" href="{{url("register")}}">Register</a>
+            <a class="btn btn-dark m-3" href="{{route("login")}}">Login</a>
+            <a class="btn btn-dark m-3" href="https://asfec.moe.gov.eg/"><i class="fas fa-globe"></i></a>
 
 
         </div>

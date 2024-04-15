@@ -20,6 +20,7 @@
         "monolog/monolog": "^2.9",
         "mpdf/mpdf": "^8.0",
         "phpoffice/phpword": "^1.2",
+        "rap2hpoutre/fast-excel": "^5.4",
         "spatie/browsershot": "^3.57",
         "spipu/html2pdf": "^5.2",
         "symfony/process": "^6.4",

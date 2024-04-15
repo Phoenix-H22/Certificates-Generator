@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\subscriped_users;
+use App\Models\Setting;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -23,6 +25,7 @@ class HomeController extends Controller
     {
         return view('home');
     }
+
     public function cert()
     {
         $name = Auth::user()->name;

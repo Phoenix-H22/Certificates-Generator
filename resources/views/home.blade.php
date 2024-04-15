@@ -16,7 +16,41 @@
 
                     {{ __('You are logged in!') }}
                     <br>
-                    <a href="{{url("export-pdf")}}" class="btn btn-primary" id="download-cert">Download Certificate</a>
+                        <br>
+                        <br>
+                        <br>
+
+{{--                    <a href="{{url("export-pdf")}}" class="btn btn-primary" id="download-cert">Download Certificate</a>--}}
+
+                    {{--  Upload docx certificate template --}}
+                    <form action="{{route('upload-template')}}" method="post" enctype="multipart/form-data">
+                        @csrf
+                        <div class="form-group mb-3">
+                            <label for="template">Upload Certificate Template</label>
+                            <input type="file" name="template" id="template" class="form-control">
+                            @error('template')
+                            <span class="text-danger">{{$message}}</span>
+                            @enderror
+                            <button type="submit" class="btn btn-primary mt-3">Upload</button>
+                            <a href="{{route('download-template')}}" class="btn btn-success mt-3">Download Template</a>
+                        </div>
+                    </form>
+                        <br>
+                        <br>
+                        <br>
+                        {{--  Upload docx certificate users excel --}}
+                        <form action="{{route('upload-sheet')}}" method="post" enctype="multipart/form-data">
+                            @csrf
+                            <div class="form-group mb-3">
+                                <label for="users">Upload Users Excel</label>
+                                <input type="file" name="sheet" id="sheet" class="form-control">
+                                @error('sheet')
+                                <span class="text-danger">{{$message}}</span>
+                                @enderror
+                                <button type="submit" class="btn btn-primary mt-3">Upload</button>
+                                <a href="{{route('download-sheet')}}" class="btn btn-success mt-3">Download Users Excel</a>
+                            </div>
+                        </form>
                     </div>
             </div>
         </div>
