@@ -36,6 +36,7 @@ class GenerateController extends Controller
             Storage::delete($tempPath);
             return back()->with('error', 'Sheet must have Name, Title, and Email headers.');
         }
+        $errors = [];
 
         // Validate each row
         foreach ($rows as $row) {
@@ -44,19 +45,19 @@ class GenerateController extends Controller
                 empty($row['Name']) || empty($row['Title']) || empty($row['Email'])) {
                 // Delete the temp file
                 Storage::delete($tempPath);
-                return back()->with('error', 'Sheet must not have empty rows.');
+                $errors[] = 'Empty row found';
             }
 
             // Validate email format
             if (!filter_var($row['Email'], FILTER_VALIDATE_EMAIL)) {
                 // Delete the temp file
                 Storage::delete($tempPath);
-                $errors = $errors ?? [];
-                $errors[] = 'Invalid email format for ' . $row['Name'];
+
+                $errors[] = 'Invalid email format for ' . $row['Name'] . ' with email ' . $row['Email'];
             }
-            if (isset($errors)) {
-                return back()->with('error', implode('<br>', $errors));
-            }
+        }
+        if (isset($errors)) {
+            return back()->with('error', implode('<br>', $errors));
         }
 
         // Move the file to public path if it's valid
