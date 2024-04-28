@@ -13,6 +13,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -59,12 +60,12 @@ class GenerateCertificates implements ShouldQueue
         // Load and replace placeholders in the DOCX
         $templateProcessor = new TemplateProcessor(public_path(Setting::first()->template_name));
         // make the file rtl for arabic
-        $templateProcessor->setValue('{Name}', $line['Name']);
-        $templateProcessor->setValue('{Title}', $line['Title']);
+        $templateProcessor->setValue('{Name}', Str::limit(trim($line['Name']), 20));
+        $templateProcessor->setValue('{Title}', trim($line['Title']));
         // save the file
         // new file name
         $time = Carbon::now()->format('i');
-        $new_file_name = "certificate".$time;
+        $new_file_name = "certificate".$time.rand(1, 1000);
         // Save as a new file
         $newFilePath = public_path('pdf-docs/'.$new_file_name.'.docx');
         $templateProcessor->saveAs($newFilePath);
