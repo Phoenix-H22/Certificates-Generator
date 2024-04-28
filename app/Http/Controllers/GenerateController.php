@@ -51,7 +51,7 @@ class GenerateController extends Controller
             if (!filter_var($row['Email'], FILTER_VALIDATE_EMAIL)) {
                 // Delete the temp file
                 Storage::delete($tempPath);
-                return back()->with('error', 'Invalid email format in the sheet.');
+                return back()->with('error', 'Invalid email format in the sheet.'. $row['Email']);
             }
         }
 
