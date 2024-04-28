@@ -56,7 +56,7 @@ class GenerateController extends Controller
                 $errors[] = 'Invalid email format for ' . $row['Name'] . ' with email ' . $row['Email'];
             }
         }
-        if (isset($errors)) {
+        if (isset($errors) && count($errors) > 0) {
             return back()->with('error', implode('<br>', $errors));
         }
 
