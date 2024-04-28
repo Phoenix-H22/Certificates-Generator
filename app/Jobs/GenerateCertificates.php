@@ -60,7 +60,7 @@ class GenerateCertificates implements ShouldQueue
         // Load and replace placeholders in the DOCX
         $templateProcessor = new TemplateProcessor(public_path(Setting::first()->template_name));
         // make the file rtl for arabic
-        $templateProcessor->setValue('{Name}', Str::limit("",trim($line['Name']), 23), ['rtl' => true]);
+        $templateProcessor->setValue('{Name}', Str::limit("",trim($line['Name']), 23));
         $templateProcessor->setValue('{Title}', trim($line['Title']));
         // save the file
         // new file name
