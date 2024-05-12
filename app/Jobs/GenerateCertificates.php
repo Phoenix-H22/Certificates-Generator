@@ -13,6 +13,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Rap2hpoutre\FastExcel\FastExcel;
@@ -51,6 +52,9 @@ class GenerateCertificates implements ShouldQueue
 
         // Read and chunk the Excel sheet.
         (new FastExcel)->import($this->sheet, function ($line) {
+            if (!filter_var($line['Email'], FILTER_VALIDATE_EMAIL)) {
+                    return;
+            }
             $this->exportPdf($line);
         }, $chunkSize);
 

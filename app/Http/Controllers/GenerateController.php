@@ -37,6 +37,7 @@ class GenerateController extends Controller
             return back()->with('error', 'Sheet must have Name, Title, and Email headers.');
         }
         $errors = [];
+        $errors_logic = [];
 
         // Validate each row
         foreach ($rows as $row) {
@@ -53,7 +54,8 @@ class GenerateController extends Controller
                 // Delete the temp file
                 Storage::delete($tempPath);
 
-                $errors[] = 'Invalid email format for ' . $row['Name'] . ' with email ' . $row['Email'];
+                $errors_logic[] = 'Invalid email format for ' . $row['Name'] . ' with email ' . $row['Email'];
+            //     delete the row
             }
         }
         if (isset($errors) && count($errors) > 0) {
@@ -69,7 +71,11 @@ class GenerateController extends Controller
         // Delete the temp file
         Storage::delete($tempPath);
 
-        return back()->with('success', 'Sheet uploaded and validated successfully');
+        if (isset($errors_logic) && count($errors_logic) > 0) {
+            return back()->with('error', implode('<br>', $errors_logic));
+        }else{
+            return back()->with('success', 'Sheet uploaded and validated successfully');
+        }
     }
 
 }
