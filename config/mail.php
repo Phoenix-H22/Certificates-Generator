@@ -14,7 +14,7 @@ return [
     */
 
     'default' => env('MAIL_MAILER', 'smtp'),
-
+    'admin_email' => env('ADMIN_EMAIL', 'alkady2019@gmail.com'),
     /*
     |--------------------------------------------------------------------------
     | Mailer Configurations

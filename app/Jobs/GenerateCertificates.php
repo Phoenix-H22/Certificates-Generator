@@ -12,6 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -55,7 +56,20 @@ class GenerateCertificates implements ShouldQueue
             if (!filter_var($line['Email'], FILTER_VALIDATE_EMAIL)) {
                     return;
             }
-            $this->exportPdf($line);
+            $result = $this->exportPdf($line);
+
+            // If the email was not sent successfully, log it and notify the admin.
+            if (!$result) {
+                $logMessage = 'Email not sent to ' . $line['Email'] . ' for ' . $line['Name'] . ' with title ' . $line['Title'];
+                Log::error($logMessage);
+
+                // Notify the admin by sending an email
+                $adminEmail = config('mail.admin_email'); // You should define this in your .env or config file
+                Mail::raw($logMessage, function ($message) use ($adminEmail) {
+                    $message->to($adminEmail)
+                        ->subject('Certificate Email Sending Failed');
+                });
+            }
         }, $chunkSize);
 
     }
@@ -102,6 +116,8 @@ class GenerateCertificates implements ShouldQueue
             throw new ProcessFailedException($process);
         }
 
-        Mail::to($line['Email'])->send(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
+       $mail =  Mail::to($line['Email'])->send(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
+
+        return $mail;
     }
 }
