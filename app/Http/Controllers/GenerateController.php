@@ -50,7 +50,7 @@ class GenerateController extends Controller
             }
 
             // Validate email format
-            if (!filter_var($row['Email'], FILTER_VALIDATE_EMAIL)) {
+            if (!filter_var(trim($row['Email']), FILTER_VALIDATE_EMAIL)) {
                 // Delete the temp file
                 Storage::delete($tempPath);
 
