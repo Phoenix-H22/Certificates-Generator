@@ -22,7 +22,7 @@ class WhatsAppService
         ];
 // Attach file URL if provided
         if ($file) {
-            $formParams['file'] = $fileUrl;
+            $formParams['file'] = $file;
         }
         $response = $client->post(env('WHATSAPP_APP_URL'), [
             'form_params' => $formParams,
