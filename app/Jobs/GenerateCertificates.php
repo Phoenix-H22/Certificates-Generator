@@ -127,9 +127,11 @@ class GenerateCertificates implements ShouldQueue
             // Handle the error if the conversion fails
             throw new ProcessFailedException($process);
         }
+        // Generate the public URL for the certificate
+        $pdfUrl = asset('pdf-docs/'.$new_file_name.'.pdf');
 
        $mail =  Mail::to($line['Email'])->send(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
-        $message = WhatsAppService::sendMessage($line['Phone'], 'Hello, ' . $line['Name'] . '! Your certificate is ready.', $pdfPath);
+        $message = WhatsAppService::sendMessage($line['Phone'], 'Hello, ' . $line['Name'] . '! Your certificate is ready.', $pdfUrl);
 
         return ['mail' => $mail, 'whatsapp' => $message];
     }
