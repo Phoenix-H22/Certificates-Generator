@@ -24,7 +24,8 @@
         "spatie/browsershot": "^3.57",
         "spipu/html2pdf": "^5.2",
         "symfony/process": "^6.4",
-        "wemersonjanuario/wkhtmltopdf-windows": "0.12.2.3"
+        "wemersonjanuario/wkhtmltopdf-windows": "0.12.2.3",
+      "ext-curl": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
