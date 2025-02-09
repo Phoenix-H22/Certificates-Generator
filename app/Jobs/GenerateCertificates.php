@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Mail\CertificateMail;
 use App\Models\Setting;
+use App\Services\WhatsAppService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -57,9 +58,8 @@ class GenerateCertificates implements ShouldQueue
                     return;
             }
             $result = $this->exportPdf($line);
-
             // If the email was not sent successfully, log it and notify the admin.
-            if (!$result) {
+            if (!$result["mail"]) {
                 $logMessage = 'Email not sent to ' . $line['Email'] . ' for ' . $line['Name'] . ' with title ' . $line['Title'];
                 Log::error($logMessage);
 
@@ -68,6 +68,18 @@ class GenerateCertificates implements ShouldQueue
                 Mail::raw($logMessage, function ($message) use ($adminEmail) {
                     $message->to($adminEmail)
                         ->subject('Certificate Email Sending Failed');
+                });
+            }
+
+            if (isset($result["whatsapp"]['error'])) {
+                $logMessage = 'WhatsApp message not sent to ' . $line['Phone'] . ' for ' . $line['Name'] . ' with title ' . $line['Title'];
+                Log::error($logMessage);
+
+                // Notify the admin by sending an email
+                $adminEmail = config('mail.admin_email'); // You should define this in your .env or config file
+                Mail::raw($logMessage, function ($message) use ($adminEmail) {
+                    $message->to($adminEmail)
+                        ->subject('Certificate WhatsApp Message Sending Failed');
                 });
             }
         }, $chunkSize);
@@ -117,7 +129,8 @@ class GenerateCertificates implements ShouldQueue
         }
 
        $mail =  Mail::to($line['Email'])->send(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
+        $message = WhatsAppService::sendMessage($line['Phone'], 'Hello, ' . $line['Name'] . '! Your certificate is ready.', $pdfPath);
 
-        return $mail;
+        return ['mail' => $mail, 'whatsapp' => $message];
     }
 }
