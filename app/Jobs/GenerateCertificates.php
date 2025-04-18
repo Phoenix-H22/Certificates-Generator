@@ -6,6 +6,7 @@ use App\Mail\AdminErrorReportMail;
 use App\Mail\CertificateMail;
 use App\Models\Setting;
 use App\Services\WhatsAppService;
+use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -88,7 +89,7 @@ class GenerateCertificates implements ShouldQueue
             'Name'  => ['required','string'],
             'Title' => ['required','string'],
             'Email' => ['required','email:filter,rfc,dns'],
-            'Phone' => ['required','phone:AUTO,E164'],
+            'Phone' => ['nullable','phone:AUTO,E164'],
         ])->validate();
 
         // 2. prepare directories
@@ -96,12 +97,12 @@ class GenerateCertificates implements ShouldQueue
         Storage::makeDirectory($jobDir);
 
         // 3. fill DOCX template
-        $template = Setting::first()->template_name;
-        if (!Storage::exists($template)) {
-            throw new \RuntimeException("Template {$template} not found.");
+        $templatePath = Setting::first()->template_name;
+        if (!file_exists(public_path($templatePath))) {
+            throw new Exception("Template file not found: " . $templatePath);
         }
 
-        $processor = new TemplateProcessor(Storage::path($template));
+        $processor = new TemplateProcessor(public_path($templatePath));
         $processor->setValue('{Name}',  Str::limit(trim($line['Name']), 23));
         $processor->setValue('{Title}', trim($line['Title']));
 
