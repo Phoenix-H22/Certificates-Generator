@@ -119,6 +119,7 @@ class GenerateCertificates implements ShouldQueue
         Mail::to($line['Email'])
             ->send(new CertificateMail(Storage::path($pdfFilename), $line['Name'], $line['Title'], $line['Email']));
 
+        Log::info('Email sent to: '.Storage::url($pdfFilename) . "File name : " . $pdfFilename);
         // 6. WhatsApp
         $whatsResp = WhatsAppService::sendMessage(
             $line['Phone'],
