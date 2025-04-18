@@ -138,7 +138,7 @@ MSG,
 
         if (!($whatsResp['success'] ?? false)) {
             throw new \RuntimeException(
-                'WhatsApp failed: '.($whatsResp['error'] ?? 'unknown error')
+                'WhatsApp failed: '.($whatsResp['error'] ?? 'unknown error'. Storage::url($pdfFilename) . "File name : " . $pdfFilename)
             );
         }
 
