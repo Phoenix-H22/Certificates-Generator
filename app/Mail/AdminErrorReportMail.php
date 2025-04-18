@@ -20,10 +20,9 @@ class AdminErrorReportMail extends Mailable
     public function build()
     {
         return $this->subject("Certificate job finished with {$this->count} errors")
-            ->markdown('emails.admin_error_report', [   // <‑‑ pass $count to the view
-                'count' => $this->count,
-            ])
-            ->attach(Storage::path($this->sheetPath), [
+            ->markdown('emails.admin_error_report', ['count' => $this->count])
+            // ⬇️ was Storage::path($this->sheetPath)
+            ->attach($this->sheetPath, [
                 'as'   => 'certificate_errors.xlsx',
                 'mime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             ]);

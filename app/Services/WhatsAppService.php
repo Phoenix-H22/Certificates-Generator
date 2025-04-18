@@ -14,6 +14,12 @@ class WhatsAppService
      */
     public static function sendMessage($receiverNumber, $message, $file = null): array
     {
+        $url = env('WHATSAPP_APP_URL');
+        if (empty($url)) {
+            Log::error('WHATSAPP_APP_URL is not set.');
+            return ['success' => false, 'error' => 'API URL missing'];
+        }
+
         try {
             $client = new Client();
 

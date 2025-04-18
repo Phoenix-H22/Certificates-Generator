@@ -79,32 +79,15 @@ class GenerateCertificates implements ShouldQueue
         // strip everything except digits and plus
         $clean = preg_replace('/[^\d+]/', '', $raw);
 
-        // already in +20…
-        if (preg_match('/^\+2010[0125]\d{7}$/', $clean)) {
-            return $clean;
+        // 010xxxxxxxx → +2010xxxxxxxx
+        if (preg_match('/^01[0125]\d{8}$/', $clean)) {
+            return '+20'.substr($clean, 1);
         }
 
-        // 2010XXXXXXXX (12 digits, no +)
-        if (preg_match('/^2010[0125]\d{7}$/', $clean)) {
-            return '+'.$clean;
+// 10xxxxxxxx → +2010xxxxxxxx
+        if (preg_match('/^1[0125]\d{8}$/', $clean)) {
+            return '+20'.$clean;
         }
-
-        // 010XXXXXXXX (11 digits, local mobile)
-        if (preg_match('/^010[0125]\d{7}$/', $clean) ||
-            preg_match('/^011[0125]\d{7}$/', $clean) ||
-            preg_match('/^012[0125]\d{7}$/', $clean) ||
-            preg_match('/^015[0125]\d{7}$/', $clean)) {
-            return '+20'.substr($clean, 1);  // drop the leading 0
-        }
-
-        // 10XXXXXXXXX (10 digits → user forgot the 0)
-        if (preg_match('/^10[0125]\d{7}$/', $clean) ||
-            preg_match('/^11[0125]\d{7}$/', $clean) ||
-            preg_match('/^12[0125]\d{7}$/', $clean) ||
-            preg_match('/^15[0125]\d{7}$/', $clean)) {
-            return '+20'.$clean;            // just prefix country code
-        }
-
         // anything else – return as‑is; the validator will decide
         return $raw;
     }
