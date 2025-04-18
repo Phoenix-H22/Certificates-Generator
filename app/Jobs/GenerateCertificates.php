@@ -46,6 +46,11 @@ class GenerateCertificates implements ShouldQueue
 
     public function handle(): void
     {
+        if (!file_exists($this->sheetPath)) {
+            Log::error('[CertificateJob] Sheet not found at '.$this->sheetPath);
+            return;                     // or throw, as you prefer
+        }
+
         $rows = (new FastExcel())->import($this->sheetPath);
 
         $rows->chunk(50)->each(function ($chunk) {
