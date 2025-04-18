@@ -13,9 +13,9 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Rap2hpoutre\FastExcel\FastExcel;
@@ -27,64 +27,51 @@ class GenerateCertificates implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    /** Absolute storage path to the uploaded sheet */
+    /** Absolute path to the uploaded sheet inside /public */
     protected string $sheetPath;
 
-    /** Row‑level errors that will end up in the admin Excel */
+    /** Row‑level errors collected for the admin report */
     protected array  $errors = [];
 
-    public int $timeout = 0;       // let it run as long as necessary
-    public int $tries   = 1;       // we’ll handle row‑level retries ourselves
+    public int $timeout = 0;
+    public int $tries   = 1;
 
     public function __construct(string $sheetPath)
     {
-        // keep the old “no limits” behavior
         @ini_set('memory_limit', '-1');
         @set_time_limit(0);
-        $this->sheetPath = $sheetPath;
+
+        $this->sheetPath = $sheetPath;   // already a public‑path string
     }
 
-    /**
-     * Main entry
-     */
     public function handle(): void
     {
-        // Lazy import; FastExcel + chunk keeps memory low
-        $rows = (new FastExcel())->import(Storage::path($this->sheetPath));
+        $rows = (new FastExcel())->import($this->sheetPath);
 
         $rows->chunk(50)->each(function ($chunk) {
             foreach ($chunk as $row) {
                 try {
                     $this->processRow($row);
                 } catch (Throwable $e) {
-                    // collect for the final sheet
                     $this->errors[] = [
                         'Name'  => $row['Name']  ?? '',
                         'Email' => $row['Email'] ?? '',
                         'Phone' => $row['Phone'] ?? '',
                         'Error' => $e->getMessage(),
                     ];
-                    // still log for quick inspection
                     Log::error('[CertificateJob] '.$e->getMessage());
                 }
             }
         });
 
         $this->sendAdminReport();
-        //Storage::delete($this->sheetPath);        // uploaded XLSX no longer needed
+        // File::delete($this->sheetPath);  // uncomment if you want it gone after run
     }
 
-    /* -------------------------------------------------------------------- */
-    /*                          helpers                                     */
-    /* -------------------------------------------------------------------- */
+    /* ------------------------------------------------------------------ */
 
-    /**
-     * Validate + generate template + send mail + send WhatsApp.
-     * Any failure throws → caught in handle().
-     */
     private function processRow(array $line): void
     {
-        // 1. validate
         validator($line, [
             'Name'  => ['required','string'],
             'Title' => ['required','string'],
@@ -92,36 +79,35 @@ class GenerateCertificates implements ShouldQueue
             'Phone' => ['nullable','phone:AUTO,E164'],
         ])->validate();
 
-        // 2. prepare directories
-        $jobDir = 'certificates/'.Str::uuid();          // unique per row
-        Storage::makeDirectory($jobDir);
+        /* ---------------- working dirs under /public ------------------ */
+        $jobDir = 'certificates/'.Str::uuid();               // relative to /public
+        File::ensureDirectoryExists(public_path($jobDir));
 
-        // 3. fill DOCX template
+        /* ---------------- template ------------------ */
         $templatePath = Setting::first()->template_name;
         if (!file_exists(public_path($templatePath))) {
-            throw new Exception("Template file not found: " . $templatePath);
+            throw new Exception("Template file not found: ".$templatePath);
         }
 
         $processor = new TemplateProcessor(public_path($templatePath));
         $processor->setValue('{Name}',  Str::limit(trim($line['Name']), 23));
         $processor->setValue('{Title}', trim($line['Title']));
 
-        $basename     = 'cert_'.now()->format('His').rand(100,999);
-        $docxFilename = "{$jobDir}/{$basename}.docx";
-        $pdfFilename  = "{$jobDir}/{$basename}.pdf";
+        $base      = 'cert_'.now()->format('His').rand(100,999);
+        $docxPath  = public_path("{$jobDir}/{$base}.docx");
+        $pdfPath   = public_path("{$jobDir}/{$base}.pdf");
 
-        $processor->saveAs(Storage::path($docxFilename));
+        $processor->saveAs($docxPath);
 
-        // 4. convert → PDF
-        $this->convertToPdf(Storage::path($docxFilename), dirname(Storage::path($pdfFilename)));
+        /* ---------------- DOCX → PDF ---------------- */
+        $this->convertToPdf($docxPath, dirname($pdfPath));
 
-        // 5. send e‑mail
+        /* ---------------- e‑mail -------------------- */
         Mail::to($line['Email'])
-            ->send(new CertificateMail(Storage::path($pdfFilename), $line['Name'], $line['Title'], $line['Email']));
+            ->send(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
 
-        Log::info('Email sent to: '.Storage::url($pdfFilename) . "File name : " . $pdfFilename);
-        // 6. WhatsApp
-        $whatsResp = WhatsAppService::sendMessage(
+        /* ---------------- WhatsApp ------------------ */
+        $resp = WhatsAppService::sendMessage(
             $line['Phone'],
             <<<MSG
 معالي الاستاذ / {$line['Name']}
@@ -134,61 +120,51 @@ class GenerateCertificates implements ShouldQueue
 مدير المركز
 د / محمد عبداالوارث القاضي
 MSG,
-            Storage::url($pdfFilename)     // or asset() if you prefer
+            asset(str_replace(public_path('/'), '', $pdfPath))   // public URL
         );
 
-        if (!($whatsResp['success'] ?? false)) {
-            throw new \RuntimeException(
-                'WhatsApp failed: '.($whatsResp['error'] ?? 'unknown error'. Storage::url($pdfFilename) . "File name : " . $pdfFilename)
-            );
+        if (!($resp['success'] ?? false)) {
+            throw new \RuntimeException('WhatsApp failed: '.($resp['error'] ?? 'unknown error'));
         }
 
-        // 7. tidy row directory
-        //Storage::deleteDirectory($jobDir);
+        // File::deleteDirectory(public_path($jobDir)); // tidy per‑row dir if you like
     }
 
-    /**
-     * LibreOffice CLI conversion
-     */
     private function convertToPdf(string $docxPath, string $outputDir): void
     {
-        // detect libreoffice once – cheap
-        static $loBinary = null;
-        if ($loBinary === null) {
-            $check = new Process(['which', 'libreoffice']);
-            $check->run();
-            if (!$check->isSuccessful()) {
+        static $lo = null;
+        if ($lo === null) {
+            $probe = new Process(['which', 'libreoffice']); $probe->run();
+            if (!$probe->isSuccessful()) {
                 throw new \RuntimeException('LibreOffice not installed.');
             }
-            $loBinary = trim($check->getOutput());
+            $lo = trim($probe->getOutput());
         }
 
-        $cmd = "{$loBinary} --headless --convert-to pdf:writer_web_pdf_Export ".
+        $cmd = "{$lo} --headless --convert-to pdf:writer_web_pdf_Export ".
             "--outdir ".escapeshellarg($outputDir).' '.escapeshellarg($docxPath);
 
-        $proc = Process::fromShellCommandline($cmd);
-        $proc->run();
-
-        if (!$proc->isSuccessful()) {
-            throw new ProcessFailedException($proc);
+        $p = Process::fromShellCommandline($cmd); $p->run();
+        if (!$p->isSuccessful()) {
+            throw new ProcessFailedException($p);
         }
     }
 
-    /**
-     * One consolidated spreadsheet to the admin
-     */
     private function sendAdminReport(): void
     {
-        if (empty($this->errors)) {
-            return;
-        }
+        if (empty($this->errors)) return;
 
-        $path = 'error_reports/'.Str::uuid().'.xlsx';
-        (new FastExcel(collect($this->errors)))->export(Storage::path($path));
+        $reportDir = public_path('error_reports');
+        File::ensureDirectoryExists($reportDir);
+
+        $fileName = Str::uuid().'.xlsx';
+        $filePath = "{$reportDir}/{$fileName}";
+
+        (new FastExcel(collect($this->errors)))->export($filePath);
 
         Mail::to(config('mail.admin_email'))
-            ->send(new AdminErrorReportMail($path, count($this->errors)));
+            ->send(new AdminErrorReportMail($filePath, count($this->errors)));
 
-        Storage::delete($path);   // optional
+        // File::delete($filePath);  // remove if you don't want to keep past reports
     }
 }
