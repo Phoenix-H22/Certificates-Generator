@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Mail\AdminErrorReportMail;
 use App\Mail\CertificateMail;
 use App\Models\Setting;
 use App\Services\WhatsAppService;
@@ -19,127 +20,108 @@ use PhpOffice\PhpWord\TemplateProcessor;
 use Rap2hpoutre\FastExcel\FastExcel;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Process;
-use Exception;
+use Throwable;
 
 class GenerateCertificates implements ShouldQueue
 {
-    use Dispatchable;
-    use InteractsWithQueue;
-    use Queueable;
-    use SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $sheet;
+    /** Absolute storage path to the uploaded sheet */
+    protected string $sheetPath;
 
-    /**
-     * Create a new job instance.
-     *
-     * @return void
-     */
-    public function __construct($sheet)
+    /** Row‑level errors that will end up in the admin Excel */
+    protected array  $errors = [];
+
+    public int $timeout = 0;       // let it run as long as necessary
+    public int $tries   = 1;       // we’ll handle row‑level retries ourselves
+
+    public function __construct(string $sheetPath)
     {
-        ini_set('memory_limit', '-1');
-        set_time_limit(0);
-        ini_set('max_execution_time', 0);
-
-        $this->sheet = $sheet;
+        // keep the old “no limits” behavior
+        @ini_set('memory_limit', '-1');
+        @set_time_limit(0);
+        $this->sheetPath = $sheetPath;
     }
 
     /**
-     * Execute the job.
-     *
-     * @return void
+     * Main entry
      */
-    public function handle()
+    public function handle(): void
     {
-        try {
-            // Define the chunk size.
-            $chunkSize = 50; // You can adjust this based on your server's capacity.
+        // Lazy import; FastExcel + chunk keeps memory low
+        $rows = (new FastExcel())->withoutHeaders()->import(Storage::path($this->sheetPath));
 
-            // Read and chunk the Excel sheet.
-            (new FastExcel())->import($this->sheet, function ($line) {
+        $rows->chunk(50)->each(function ($chunk) {
+            foreach ($chunk as $row) {
                 try {
-                    if (!filter_var($line['Email'], FILTER_VALIDATE_EMAIL)) {
-                        throw new Exception("Invalid email format for " . $line['Email']);
-                    }
-
-                    $result = $this->exportPdf($line);
-
-                    if (!$result["mail"]) {
-                        $logMessage = 'Email not sent to ' . $line['Email'] . ' for ' . $line['Name'] . ' with title ' . $line['Title'];
-                        Log::error($logMessage);
-                        $this->notifyAdmin($logMessage);
-                    }
-
-                    if (isset($result["whatsapp"]['error'])) {
-                        $logMessage = 'WhatsApp message not sent to ' . $line['Phone'] . ' for ' . $line['Name'] . ' with title ' . $line['Title'];
-                        Log::error($logMessage);
-                        $this->notifyAdmin($logMessage);
-                    }
-                } catch (Exception $e) {
-                    Log::error("Error processing row: " . $e->getMessage());
-                    $this->notifyAdmin("Error processing row: " . $e->getMessage());
+                    $this->processRow($row);
+                } catch (Throwable $e) {
+                    // collect for the final sheet
+                    $this->errors[] = [
+                        'Name'  => $row['Name']  ?? '',
+                        'Email' => $row['Email'] ?? '',
+                        'Phone' => $row['Phone'] ?? '',
+                        'Error' => $e->getMessage(),
+                    ];
+                    // still log for quick inspection
+                    Log::error('[CertificateJob] '.$e->getMessage());
                 }
-            }, $chunkSize);
-        } catch (Exception $e) {
-            Log::error("Job Failed: " . $e->getMessage());
-            $this->notifyAdmin("Job Failed: " . $e->getMessage());
-        }
+            }
+        });
+
+        $this->sendAdminReport();
+        Storage::delete($this->sheetPath);        // uploaded XLSX no longer needed
     }
 
-    public function exportPdf($line)
+    /* -------------------------------------------------------------------- */
+    /*                          helpers                                     */
+    /* -------------------------------------------------------------------- */
+
+    /**
+     * Validate + generate template + send mail + send WhatsApp.
+     * Any failure throws → caught in handle().
+     */
+    private function processRow(array $line): void
     {
-        try {
-            // Load and replace placeholders in the DOCX
-            $templatePath = Setting::first()->template_name;
-            if (!file_exists(public_path($templatePath))) {
-                throw new Exception("Template file not found: " . $templatePath);
-            }
+        // 1. validate
+        validator($line, [
+            'Name'  => ['required','string'],
+            'Title' => ['required','string'],
+            'Email' => ['required','email:filter,rfc,dns'],
+            'Phone' => ['required','phone:AUTO,E164'],
+        ])->validate();
 
-            $templateProcessor = new TemplateProcessor(public_path($templatePath));
+        // 2. prepare directories
+        $jobDir = 'certificates/'.Str::uuid();          // unique per row
+        Storage::makeDirectory($jobDir);
 
-            // Fill template
-            $templateProcessor->setValue('{Name}', Str::limit(trim($line['Name']), 23));
-            $templateProcessor->setValue('{Title}', trim($line['Title']));
+        // 3. fill DOCX template
+        $template = Setting::first()->template_name;
+        if (!Storage::exists($template)) {
+            throw new \RuntimeException("Template {$template} not found.");
+        }
 
-            // Generate file names
-            $time = Carbon::now()->format('i');
-            $newFileName = "certificate" . $time . rand(1, 1000);
-            $newFilePath = public_path('pdf-docs/' . $newFileName . '.docx');
-            $templateProcessor->saveAs($newFilePath);
+        $processor = new TemplateProcessor(Storage::path($template));
+        $processor->setValue('{Name}',  Str::limit(trim($line['Name']), 23));
+        $processor->setValue('{Title}', trim($line['Title']));
 
-            // Check if LibreOffice is installed
-            $processCheck = new Process(['which', 'libreoffice']);
-            $processCheck->run();
-            if (!$processCheck->isSuccessful()) {
-                throw new Exception("LibreOffice is not installed on the server.");
-            }
+        $basename     = 'cert_'.now()->format('His').rand(100,999);
+        $docxFilename = "{$jobDir}/{$basename}.docx";
+        $pdfFilename  = "{$jobDir}/{$basename}.pdf";
 
-            // Convert to PDF
-            $outputDir = public_path('pdf-docs/');
-            $pdfPath = public_path('pdf-docs/' . $newFileName . '.pdf');
-            $command = "libreoffice --headless --convert-to pdf:writer_web_pdf_Export --outdir {$outputDir} {$newFilePath}";
+        $processor->saveAs(Storage::path($docxFilename));
 
-            $process = Process::fromShellCommandline($command);
-            $process->run();
-            if (!$process->isSuccessful()) {
-                throw new ProcessFailedException($process);
-            }
+        // 4. convert → PDF
+        $this->convertToPdf(Storage::path($docxFilename), dirname(Storage::path($pdfFilename)));
 
-            // Send Email
-            try {
-                Mail::to($line['Email'])->send(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
-                $mailSent = true;
-            } catch (Exception $e) {
-                Log::error("Failed to send email to " . $line['Email'] . ": " . $e->getMessage());
-                $this->notifyAdmin("Failed to send email to " . $line['Email']);
-                $mailSent = false;
-            }
+        // 5. send e‑mail
+        Mail::to($line['Email'])
+            ->send(new CertificateMail(Storage::path($pdfFilename), $line['Name'], $line['Title'], $line['Email']));
 
-
-            // Send WhatsApp message
-            $message = WhatsAppService::sendMessage(
-                $line['Phone'],
-                <<<MSG
+        // 6. WhatsApp
+        $whatsResp = WhatsAppService::sendMessage(
+            $line['Phone'],
+            <<<MSG
 معالي الاستاذ / {$line['Name']}
 
 تحية واحتراما وبعد
@@ -150,50 +132,61 @@ class GenerateCertificates implements ShouldQueue
 مدير المركز
 د / محمد عبداالوارث القاضي
 MSG,
-                asset('pdf-docs/' . $newFileName . '.pdf')
+            Storage::url($pdfFilename)     // or asset() if you prefer
+        );
+
+        if (!($whatsResp['success'] ?? false)) {
+            throw new \RuntimeException(
+                'WhatsApp failed: '.($whatsResp['error'] ?? 'unknown error')
             );
+        }
 
+        // 7. tidy row directory
+        Storage::deleteDirectory($jobDir);
+    }
 
-            // Check if sending was successful
-            if (!$message['success']) {
-                $errorMsg = "Failed to send WhatsApp message to " . $line['Phone'] . ": " . $message['error'];
-
-                // Log the error
-                Log::error($errorMsg);
-
-                // Notify the admin
-                $this->notifyAdmin($errorMsg);
-
-                // Store the error message in the response array
-                $message = ['error' => $message['error']];
-            } else {
-                // Log success
-                Log::info("WhatsApp message successfully sent to " . $line['Phone']);
+    /**
+     * LibreOffice CLI conversion
+     */
+    private function convertToPdf(string $docxPath, string $outputDir): void
+    {
+        // detect libreoffice once – cheap
+        static $loBinary = null;
+        if ($loBinary === null) {
+            $check = new Process(['which', 'libreoffice']);
+            $check->run();
+            if (!$check->isSuccessful()) {
+                throw new \RuntimeException('LibreOffice not installed.');
             }
+            $loBinary = trim($check->getOutput());
+        }
 
+        $cmd = "{$loBinary} --headless --convert-to pdf:writer_web_pdf_Export ".
+            "--outdir ".escapeshellarg($outputDir).' '.escapeshellarg($docxPath);
 
-            return ['mail' => $mailSent, 'whatsapp' => $message];
-        } catch (Exception $e) {
-            Log::error("Failed to generate PDF for " . $line['Name'] . ": " . $e->getMessage());
-            $this->notifyAdmin("Failed to generate PDF for " . $line['Name']);
-            return ['mail' => false, 'whatsapp' => ['error' => 'PDF Generation Failed']];
+        $proc = Process::fromShellCommandline($cmd);
+        $proc->run();
+
+        if (!$proc->isSuccessful()) {
+            throw new ProcessFailedException($proc);
         }
     }
 
     /**
-     * Notify admin via email
+     * One consolidated spreadsheet to the admin
      */
-    private function notifyAdmin($message)
+    private function sendAdminReport(): void
     {
-        try {
-            $adminEmail = config('mail.admin_email');
-            if ($adminEmail) {
-                Mail::raw($message, function ($mail) use ($adminEmail) {
-                    $mail->to($adminEmail)->subject('Certificate Processing Error');
-                });
-            }
-        } catch (Exception $e) {
-            Log::error("Failed to notify admin: " . $e->getMessage());
+        if (empty($this->errors)) {
+            return;
         }
+
+        $path = 'error_reports/'.Str::uuid().'.xlsx';
+        (new FastExcel(collect($this->errors)))->export(Storage::path($path));
+
+        Mail::to(config('mail.admin_email'))
+            ->send(new AdminErrorReportMail($path, count($this->errors)));
+
+        Storage::delete($path);   // optional
     }
 }

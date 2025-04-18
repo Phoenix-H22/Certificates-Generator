@@ -6,9 +6,11 @@
     "license": "MIT",
     "require": {
         "php": "^8.0.2",
+        "ext-curl": "*",
         "barryvdh/laravel-dompdf": "^2.0",
         "barryvdh/laravel-snappy": "^1.0",
         "carlos-meneses/laravel-mpdf": "^2.1",
+        "egulias/email-validator": "^4.0",
         "guzzlehttp/guzzle": "^7.2",
         "h4cc/wkhtmltoimage-amd64": "0.12.x",
         "h4cc/wkhtmltopdf-amd64": "0.12.x",
@@ -20,12 +22,12 @@
         "monolog/monolog": "^2.9",
         "mpdf/mpdf": "^8.0",
         "phpoffice/phpword": "^1.2",
+        "propaganistas/laravel-phone": "^5.1",
         "rap2hpoutre/fast-excel": "^5.4",
         "spatie/browsershot": "^3.57",
         "spipu/html2pdf": "^5.2",
         "symfony/process": "^6.4",
-        "wemersonjanuario/wkhtmltopdf-windows": "0.12.2.3",
-      "ext-curl": "*"
+        "wemersonjanuario/wkhtmltopdf-windows": "0.12.2.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",
