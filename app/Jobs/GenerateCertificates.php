@@ -49,7 +49,7 @@ class GenerateCertificates implements ShouldQueue
     public function handle(): void
     {
         // Lazy import; FastExcel + chunk keeps memory low
-        $rows = (new FastExcel())->withoutHeaders()->import(Storage::path($this->sheetPath));
+        $rows = (new FastExcel())->import(Storage::path($this->sheetPath));
 
         $rows->chunk(50)->each(function ($chunk) {
             foreach ($chunk as $row) {
@@ -70,7 +70,7 @@ class GenerateCertificates implements ShouldQueue
         });
 
         $this->sendAdminReport();
-        Storage::delete($this->sheetPath);        // uploaded XLSX no longer needed
+        //Storage::delete($this->sheetPath);        // uploaded XLSX no longer needed
     }
 
     /* -------------------------------------------------------------------- */
@@ -142,7 +142,7 @@ MSG,
         }
 
         // 7. tidy row directory
-        Storage::deleteDirectory($jobDir);
+        //Storage::deleteDirectory($jobDir);
     }
 
     /**
