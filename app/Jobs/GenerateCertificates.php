@@ -72,11 +72,47 @@ class GenerateCertificates implements ShouldQueue
         $this->sendAdminReport();
         // File::delete($this->sheetPath);  // uncomment if you want it gone after run
     }
+    private function normalizePhone(?string $raw): string
+    {
+        if (!$raw) return '';
 
+        // strip everything except digits and plus
+        $clean = preg_replace('/[^\d+]/', '', $raw);
+
+        // already in +20…
+        if (preg_match('/^\+2010[0125]\d{7}$/', $clean)) {
+            return $clean;
+        }
+
+        // 2010XXXXXXXX (12 digits, no +)
+        if (preg_match('/^2010[0125]\d{7}$/', $clean)) {
+            return '+'.$clean;
+        }
+
+        // 010XXXXXXXX (11 digits, local mobile)
+        if (preg_match('/^010[0125]\d{7}$/', $clean) ||
+            preg_match('/^011[0125]\d{7}$/', $clean) ||
+            preg_match('/^012[0125]\d{7}$/', $clean) ||
+            preg_match('/^015[0125]\d{7}$/', $clean)) {
+            return '+20'.substr($clean, 1);  // drop the leading 0
+        }
+
+        // 10XXXXXXXXX (10 digits → user forgot the 0)
+        if (preg_match('/^10[0125]\d{7}$/', $clean) ||
+            preg_match('/^11[0125]\d{7}$/', $clean) ||
+            preg_match('/^12[0125]\d{7}$/', $clean) ||
+            preg_match('/^15[0125]\d{7}$/', $clean)) {
+            return '+20'.$clean;            // just prefix country code
+        }
+
+        // anything else – return as‑is; the validator will decide
+        return $raw;
+    }
     /* ------------------------------------------------------------------ */
 
     private function processRow(array $line): void
     {
+        $line['Phone'] = $this->normalizePhone($line['Phone'] ?? '');
         validator($line, [
             'Name'  => ['required','string'],
             'Title' => ['required','string'],
