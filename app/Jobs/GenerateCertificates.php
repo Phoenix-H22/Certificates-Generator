@@ -139,9 +139,20 @@ class GenerateCertificates implements ShouldQueue
             // Send WhatsApp message
             $message = WhatsAppService::sendMessage(
                 $line['Phone'],
-                'Hello, ' . $line['Name'] . '! Your certificate is ready.',
+                <<<MSG
+معالي الاستاذ / {$line['Name']}
+
+تحية واحتراما وبعد
+
+يسعدنا في المركز الاقليمي لتعليم الكبار اسفك مشاركة معاليكم في حضور ندوتنا
+يشرفنا ارسال شهادة الحضور
+
+مدير المركز
+د / محمد عبداالوارث القاضي
+MSG,
                 asset('pdf-docs/' . $newFileName . '.pdf')
             );
+
 
             // Check if sending was successful
             if (!$message['success']) {
