@@ -61,7 +61,7 @@ class GenerateCertificates implements ShouldQueue
                     $this->errors[] = [
                         'Name'  => $row['Name']  ?? '',
                         'Email' => $row['Email'] ?? '',
-                        'Phone' => $row['Phone'] ?? '',
+                        //'Phone' => $row['Phone'] ?? '',
                         'Error' => $e->getMessage(),
                     ];
                     Log::error('[CertificateJob] '.$e->getMessage());
@@ -95,12 +95,12 @@ class GenerateCertificates implements ShouldQueue
 
     private function processRow(array $line): void
     {
-        $line['Phone'] = $this->normalizePhone($line['Phone'] ?? '');
+        //$line['Phone'] = $this->normalizePhone($line['Phone'] ?? '');
         validator($line, [
             'Name'  => ['required','string'],
             'Title' => ['required','string'],
             'Email' => ['required','email:filter,rfc,dns'],
-            'Phone' => ['nullable','phone:AUTO,E164'],
+            //'Phone' => ['nullable','phone:AUTO,E164'],
         ])->validate();
 
         /* ---------------- working dirs under /public ------------------ */
@@ -131,25 +131,25 @@ class GenerateCertificates implements ShouldQueue
             ->send(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
 
         /* ---------------- WhatsApp ------------------ */
-        $resp = WhatsAppService::sendMessage(
-            $line['Phone'],
-            <<<MSG
-معالي الاستاذ / {$line['Name']}
-
-تحية واحتراما وبعد
-
-يسعدنا في المركز الاقليمي لتعليم الكبار اسفك مشاركة معاليكم في حضور ندوتنا
-يشرفنا ارسال شهادة الحضور
-
-مدير المركز
-د / محمد عبداالوارث القاضي
-MSG,
-            asset(str_replace(public_path('/'), '', $pdfPath))   // public URL
-        );
-
-        if (!($resp['success'] ?? false)) {
-            throw new \RuntimeException('WhatsApp failed: '.($resp['error'] ?? 'unknown error'));
-        }
+//        $resp = WhatsAppService::sendMessage(
+//            $line['Phone'],
+//            <<<MSG
+//معالي الاستاذ / {$line['Name']}
+//
+//تحية واحتراما وبعد
+//
+//يسعدنا في المركز الاقليمي لتعليم الكبار اسفك مشاركة معاليكم في حضور ندوتنا
+//يشرفنا ارسال شهادة الحضور
+//
+//مدير المركز
+//د / محمد عبداالوارث القاضي
+//MSG,
+//            asset(str_replace(public_path('/'), '', $pdfPath))   // public URL
+//        );
+//
+//        if (!($resp['success'] ?? false)) {
+//            throw new \RuntimeException('WhatsApp failed: '.($resp['error'] ?? 'unknown error'));
+//        }
 
         // File::deleteDirectory(public_path($jobDir)); // tidy per‑row dir if you like
     }
