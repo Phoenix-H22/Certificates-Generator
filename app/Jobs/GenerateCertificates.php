@@ -33,44 +33,134 @@ class GenerateCertificates implements ShouldQueue
     /** Row‑level errors collected for the admin report */
     protected array  $errors = [];
 
-    public int $timeout = 0;
-    public int $tries   = 1;
+    /** Job directory for this execution */
+    protected string $jobDir;
+
+    public int $timeout = 3600; // 1 hour
+    public int $tries   = 3;
 
     public function __construct(string $sheetPath)
     {
-        @ini_set('memory_limit', '-1');
-        @set_time_limit(0);
+        // Set reasonable resource limits (configurable via env)
+        $memoryLimit = env('CERTIFICATE_JOB_MEMORY_LIMIT', '512M');
+        $timeLimit = env('CERTIFICATE_JOB_TIME_LIMIT', 3600);
+
+        @ini_set('memory_limit', $memoryLimit);
+        @set_time_limit($timeLimit);
 
         $this->sheetPath = $sheetPath;   // already a public‑path string
     }
 
     public function handle(): void
     {
-        if (!file_exists($this->sheetPath)) {
-            Log::error('[CertificateJob] Sheet not found at '.$this->sheetPath);
-            return;                     // or throw, as you prefer
-        }
+        $startTime = microtime(true);
+        $rowCount = 0;
+        $processedCount = 0;
 
-        $rows = (new FastExcel())->import($this->sheetPath);
+        Log::info('[CertificateJob] Starting certificate generation', [
+            'sheet_path' => $this->sheetPath,
+            'memory_limit' => ini_get('memory_limit'),
+            'time_limit' => ini_get('max_execution_time'),
+        ]);
 
-        $rows->chunk(50)->each(function ($chunk) {
-            foreach ($chunk as $row) {
+        try {
+            // Validate Excel file early
+            $this->validateExcelFile();
+
+            // Check disk space before processing
+            $this->checkDiskSpace();
+
+            // Validate template and setting once
+            $templatePath = $this->validateTemplateAndSetting();
+
+            // Create single job directory
+            $this->jobDir = 'certificates/'.now()->format('Y-m-d').'/'.Str::uuid();
+            try {
+                File::ensureDirectoryExists(public_path($this->jobDir));
+            } catch (Throwable $e) {
+                Log::error('[CertificateJob] Failed to create job directory', [
+                    'directory' => $this->jobDir,
+                    'error' => $e->getMessage(),
+                ]);
+                throw new Exception("Failed to create working directory: ".$e->getMessage());
+            }
+
+            // Import Excel file
+            try {
+                $rows = (new FastExcel())->import($this->sheetPath);
+            } catch (Throwable $e) {
+                Log::error('[CertificateJob] Failed to import Excel file', [
+                    'error' => $e->getMessage(),
+                    'file' => $this->sheetPath,
+                ]);
+                throw new Exception("Failed to import Excel file. File may be corrupted or invalid format: ".$e->getMessage());
+            }
+
+            // Validate required columns exist
+            $this->validateExcelColumns($rows);
+
+            $rowCount = $rows->count();
+            Log::info('[CertificateJob] Excel file loaded', ['row_count' => $rowCount]);
+
+            // Process rows in chunks
+            $rows->chunk(50)->each(function ($chunk) use ($templatePath, &$processedCount) {
+                foreach ($chunk as $rowIndex => $row) {
+                    $processedCount++;
+                    try {
+                        $this->processRow($row, $templatePath, $this->jobDir, $processedCount);
+                    } catch (Throwable $e) {
+                        $this->errors[] = [
+                            'Row' => $processedCount,
+                            'Name'  => $row['Name']  ?? '',
+                            'Title' => $row['Title'] ?? '',
+                            'Email' => $row['Email'] ?? '',
+                            'Phone' => $row['Phone'] ?? '',
+                            'Error' => $e->getMessage(),
+                            'ErrorType' => $this->categorizeError($e),
+                            'Timestamp' => now()->toDateTimeString(),
+                        ];
+                        Log::error('[CertificateJob] Row processing failed', [
+                            'row' => $processedCount,
+                            'error' => $e->getMessage(),
+                            'error_type' => $this->categorizeError($e),
+                        ]);
+                    }
+                }
+            });
+
+            $endTime = microtime(true);
+            $duration = round($endTime - $startTime, 2);
+
+            Log::info('[CertificateJob] Certificate generation completed', [
+                'total_rows' => $rowCount,
+                'processed' => $processedCount,
+                'errors' => count($this->errors),
+                'duration_seconds' => $duration,
+                'rows_per_second' => $rowCount > 0 ? round($processedCount / $duration, 2) : 0,
+            ]);
+
+            $this->sendAdminReport();
+
+            // Optional: Clean up uploaded Excel file
+            if (env('CLEANUP_UPLOADED_SHEETS', false)) {
                 try {
-                    $this->processRow($row);
+                    File::delete($this->sheetPath);
+                    Log::info('[CertificateJob] Cleaned up uploaded sheet', ['path' => $this->sheetPath]);
                 } catch (Throwable $e) {
-                    $this->errors[] = [
-                        'Name'  => $row['Name']  ?? '',
-                        'Email' => $row['Email'] ?? '',
-                        //'Phone' => $row['Phone'] ?? '',
-                        'Error' => $e->getMessage(),
-                    ];
-                    Log::error('[CertificateJob] '.$e->getMessage());
+                    Log::warning('[CertificateJob] Failed to cleanup uploaded sheet', [
+                        'path' => $this->sheetPath,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
-        });
 
-        $this->sendAdminReport();
-        // File::delete($this->sheetPath);  // uncomment if you want it gone after run
+        } catch (Throwable $e) {
+            Log::error('[CertificateJob] Fatal error in job execution', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw $e; // Re-throw to let queue handle retry
+        }
     }
     private function normalizePhone(?string $raw): string
     {
@@ -93,42 +183,95 @@ class GenerateCertificates implements ShouldQueue
     }
     /* ------------------------------------------------------------------ */
 
-    private function processRow(array $line): void
+    private function processRow(array $line, string $templatePath, string $jobDir, int $rowNumber): void
     {
-        //$line['Phone'] = $this->normalizePhone($line['Phone'] ?? '');
+        // Normalize phone number
+        $line['Phone'] = $this->normalizePhone($line['Phone'] ?? '');
+
+        // Validate row data
         validator($line, [
             'Name'  => ['required','string'],
             'Title' => ['required','string'],
             'Email' => ['required','email:filter,rfc,dns'],
-            //'Phone' => ['nullable','phone:AUTO,E164'],
+            'Phone' => ['nullable','phone:AUTO,E164'],
         ])->validate();
 
-        /* ---------------- working dirs under /public ------------------ */
-        $jobDir = 'certificates/'.Str::uuid();               // relative to /public
-        File::ensureDirectoryExists(public_path($jobDir));
-
-        /* ---------------- template ------------------ */
-        $templatePath = Setting::first()->template_name;
-        if (!file_exists(public_path($templatePath))) {
-            throw new Exception("Template file not found: ".$templatePath);
+        // Verify template still exists (edge case: deleted mid-execution)
+        $fullTemplatePath = public_path($templatePath);
+        if (!file_exists($fullTemplatePath) || !is_readable($fullTemplatePath)) {
+            throw new Exception("Template file not accessible: {$templatePath}");
         }
 
-        $processor = new TemplateProcessor(public_path($templatePath));
-        $processor->setValue('{Name}',  Str::limit(trim($line['Name']), 23));
-        $processor->setValue('{Title}', trim($line['Title']));
-
-        $base      = 'cert_'.now()->format('His').rand(100,999);
+        // Generate unique filename
+        $base      = 'cert_'.now()->format('His').'_'.Str::random(8);
         $docxPath  = public_path("{$jobDir}/{$base}.docx");
         $pdfPath   = public_path("{$jobDir}/{$base}.pdf");
 
-        $processor->saveAs($docxPath);
+        // Process template
+        try {
+            $processor = new TemplateProcessor($fullTemplatePath);
+            $processor->setValue('{Name}',  Str::limit(trim($line['Name']), 23));
+            $processor->setValue('{Title}', trim($line['Title']));
+            $processor->saveAs($docxPath);
+        } catch (Throwable $e) {
+            throw new Exception("Failed to process template: ".$e->getMessage());
+        }
 
-        /* ---------------- DOCX → PDF ---------------- */
-        $this->convertToPdf($docxPath, dirname($pdfPath));
+        // Convert DOCX to PDF
+        try {
+            $this->convertToPdf($docxPath, dirname($pdfPath));
+        } catch (Throwable $e) {
+            // Clean up DOCX if PDF conversion fails
+            $this->cleanupFile($docxPath, 'DOCX');
+            throw new Exception("PDF conversion failed: ".$e->getMessage());
+        }
 
-        /* ---------------- e‑mail -------------------- */
-        Mail::to($line['Email'])
-            ->send(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
+        // Verify PDF was created
+        if (!file_exists($pdfPath)) {
+            $this->cleanupFile($docxPath, 'DOCX');
+            throw new Exception("PDF file was not created after conversion");
+        }
+
+        // Clean up DOCX after successful PDF conversion
+        $this->cleanupFile($docxPath, 'DOCX');
+
+        // Queue email (async) - don't fail row if email fails
+        try {
+            Mail::to($line['Email'])
+                ->queue(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
+
+            Log::info('[CertificateJob] Email queued successfully', [
+                'row' => $rowNumber,
+                'email' => $line['Email'],
+            ]);
+        } catch (Throwable $e) {
+            // Log but don't throw - email failure shouldn't fail the row
+            Log::error('[CertificateJob] Failed to queue email', [
+                'row' => $rowNumber,
+                'email' => $line['Email'],
+                'error' => $e->getMessage(),
+            ]);
+
+            // Add to errors but continue processing
+            $this->errors[] = [
+                'Row' => $rowNumber,
+                'Name'  => $line['Name'] ?? '',
+                'Title' => $line['Title'] ?? '',
+                'Email' => $line['Email'] ?? '',
+                'Phone' => $line['Phone'] ?? '',
+                'Error' => 'Email queuing failed: '.$e->getMessage(),
+                'ErrorType' => 'email',
+                'Timestamp' => now()->toDateTimeString(),
+            ];
+        }
+
+        // Optional: Clean up PDF after email is queued
+        // Note: PDF is needed for email attachment, so cleanup happens after email is sent
+        // Consider implementing a scheduled job to clean up old PDFs
+        if (env('CLEANUP_PDFS_IMMEDIATELY', false)) {
+            // Schedule cleanup after a delay to ensure email is sent
+            // For now, we'll keep the PDF
+        }
 
         /* ---------------- WhatsApp ------------------ */
 //        $resp = WhatsAppService::sendMessage(
@@ -150,8 +293,6 @@ class GenerateCertificates implements ShouldQueue
 //        if (!($resp['success'] ?? false)) {
 //            throw new \RuntimeException('WhatsApp failed: '.($resp['error'] ?? 'unknown error'));
 //        }
-
-        // File::deleteDirectory(public_path($jobDir)); // tidy per‑row dir if you like
     }
 
     private function convertToPdf(string $docxPath, string $outputDir): void
@@ -176,19 +317,214 @@ class GenerateCertificates implements ShouldQueue
 
     private function sendAdminReport(): void
     {
-        if (empty($this->errors)) return;
+        if (empty($this->errors)) {
+            Log::info('[CertificateJob] No errors to report');
+            return;
+        }
 
         $reportDir = public_path('error_reports');
-        File::ensureDirectoryExists($reportDir);
+        try {
+            File::ensureDirectoryExists($reportDir);
+        } catch (Throwable $e) {
+            Log::error('[CertificateJob] Failed to create error reports directory', [
+                'error' => $e->getMessage(),
+            ]);
+            return;
+        }
 
         $fileName = Str::uuid().'.xlsx';
         $filePath = "{$reportDir}/{$fileName}";
 
-        (new FastExcel(collect($this->errors)))->export($filePath);
+        try {
+            (new FastExcel(collect($this->errors)))->export($filePath);
+        } catch (Throwable $e) {
+            Log::error('[CertificateJob] Failed to export error report', [
+                'error' => $e->getMessage(),
+            ]);
+            return;
+        }
 
-        Mail::to(config('mail.admin_email'))
-            ->send(new AdminErrorReportMail($filePath, count($this->errors)));
+        try {
+            Mail::to(config('mail.admin_email'))
+                ->queue(new AdminErrorReportMail($filePath, count($this->errors)));
 
-        // File::delete($filePath);  // remove if you don't want to keep past reports
+            Log::info('[CertificateJob] Admin error report queued', [
+                'error_count' => count($this->errors),
+                'report_path' => $filePath,
+            ]);
+        } catch (Throwable $e) {
+            Log::error('[CertificateJob] Failed to queue admin error report', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // Optional: Clean up error report after sending
+        if (env('CLEANUP_ERROR_REPORTS', false)) {
+            // Schedule cleanup after email is sent
+            // For now, keep the report for reference
+        }
+    }
+
+    /**
+     * Validate Excel file early
+     */
+    private function validateExcelFile(): void
+    {
+        if (!file_exists($this->sheetPath)) {
+            throw new Exception("Excel file not found at: {$this->sheetPath}");
+        }
+
+        if (!is_readable($this->sheetPath)) {
+            throw new Exception("Excel file is not readable: {$this->sheetPath}");
+        }
+
+        // Check file size (prevent processing extremely large files)
+        $fileSize = filesize($this->sheetPath);
+        $maxSize = env('MAX_EXCEL_FILE_SIZE', 50 * 1024 * 1024); // 50MB default
+
+        if ($fileSize > $maxSize) {
+            throw new Exception("Excel file exceeds maximum size limit: ".round($maxSize / 1024 / 1024, 2)."MB");
+        }
+
+        // Validate mime type
+        $mimeType = mime_content_type($this->sheetPath);
+        $allowedTypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel',
+        ];
+
+        if (!in_array($mimeType, $allowedTypes)) {
+            throw new Exception("Invalid file type. Expected Excel file, got: {$mimeType}");
+        }
+    }
+
+    /**
+     * Validate Excel has required columns
+     */
+    private function validateExcelColumns($rows): void
+    {
+        if ($rows->isEmpty()) {
+            throw new Exception("Excel file is empty or contains no data");
+        }
+
+        // Get first row to check columns
+        $firstRow = $rows->first();
+        $requiredColumns = ['Name', 'Title', 'Email'];
+        $missingColumns = [];
+
+        foreach ($requiredColumns as $column) {
+            if (!isset($firstRow[$column])) {
+                $missingColumns[] = $column;
+            }
+        }
+
+        if (!empty($missingColumns)) {
+            throw new Exception("Excel file is missing required columns: ".implode(', ', $missingColumns));
+        }
+    }
+
+    /**
+     * Validate template and setting once
+     */
+    private function validateTemplateAndSetting(): string
+    {
+        $setting = Setting::first();
+        if (!$setting) {
+            throw new Exception("No settings found. Please configure the application first.");
+        }
+
+        if (!$setting->template_name) {
+            throw new Exception("Template not configured in settings. Please upload a template first.");
+        }
+
+        $templatePath = $setting->template_name;
+        $fullTemplatePath = public_path($templatePath);
+
+        if (!file_exists($fullTemplatePath)) {
+            throw new Exception("Template file not found: {$templatePath}");
+        }
+
+        if (!is_readable($fullTemplatePath)) {
+            throw new Exception("Template file is not readable: {$templatePath}");
+        }
+
+        return $templatePath;
+    }
+
+    /**
+     * Check available disk space
+     */
+    private function checkDiskSpace(): void
+    {
+        $publicPath = public_path();
+        $freeSpace = disk_free_space($publicPath);
+        $requiredSpace = env('MIN_DISK_SPACE_MB', 100) * 1024 * 1024; // 100MB default
+
+        if ($freeSpace === false) {
+            Log::warning('[CertificateJob] Could not determine disk space, continuing with caution');
+            return;
+        }
+
+        if ($freeSpace < $requiredSpace) {
+            throw new Exception("Insufficient disk space. Required: ".round($requiredSpace / 1024 / 1024, 2)."MB, Available: ".round($freeSpace / 1024 / 1024, 2)."MB");
+        }
+
+        Log::info('[CertificateJob] Disk space check passed', [
+            'free_space_mb' => round($freeSpace / 1024 / 1024, 2),
+            'required_mb' => round($requiredSpace / 1024 / 1024, 2),
+        ]);
+    }
+
+    /**
+     * Cleanup file with error handling
+     */
+    private function cleanupFile(string $filePath, string $fileType = 'file'): void
+    {
+        try {
+            if (file_exists($filePath)) {
+                File::delete($filePath);
+                Log::debug('[CertificateJob] Cleaned up '.$fileType, ['path' => $filePath]);
+            }
+        } catch (Throwable $e) {
+            Log::warning('[CertificateJob] Failed to cleanup '.$fileType, [
+                'path' => $filePath,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Categorize error type for better reporting
+     */
+    private function categorizeError(Throwable $e): string
+    {
+        $message = $e->getMessage();
+        $class = get_class($e);
+
+        if (str_contains($message, 'validation') || str_contains($message, 'required') || str_contains($message, 'email')) {
+            return 'validation';
+        }
+
+        if (str_contains($message, 'template') || str_contains($message, 'Template')) {
+            return 'template';
+        }
+
+        if (str_contains($message, 'PDF') || str_contains($message, 'LibreOffice') || $e instanceof ProcessFailedException) {
+            return 'conversion';
+        }
+
+        if (str_contains($message, 'email') || str_contains($message, 'mail')) {
+            return 'email';
+        }
+
+        if (str_contains($message, 'permission') || str_contains($message, 'readable')) {
+            return 'permission';
+        }
+
+        if (str_contains($message, 'disk') || str_contains($message, 'space')) {
+            return 'disk';
+        }
+
+        return 'unknown';
     }
 }

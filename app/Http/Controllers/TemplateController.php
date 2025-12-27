@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class TemplateController extends Controller
 {
@@ -16,7 +17,7 @@ class TemplateController extends Controller
 
         // Attempt to move the new file into place
         try {
-            $file_name = 'Certificate_template'. rand(1, 1000) . '.docx';
+            $file_name = 'Certificate_template_'.Str::uuid().'.docx';
             $path = public_path();
             $template->move(public_path(), $file_name);
             $settings = Setting::first();
