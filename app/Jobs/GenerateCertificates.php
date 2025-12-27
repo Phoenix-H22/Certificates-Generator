@@ -197,13 +197,18 @@ class GenerateCertificates implements ShouldQueue
         // Normalize phone number
         $line['Phone'] = $this->normalizePhone($line['Phone'] ?? '');
 
-        // Validate row data
+        // Validate required fields (Name, Title) - but allow invalid emails to pass
+        // We'll generate the certificate anyway and handle invalid emails separately
         validator($line, [
             'Name'  => ['required','string'],
             'Title' => ['required','string'],
-            'Email' => ['required','email:filter,rfc,dns'],
+            'Email' => ['nullable','string'], // Changed: allow any string, validate separately
             'Phone' => ['nullable','phone:AUTO,E164'],
         ])->validate();
+
+        // Check if email is valid (but don't fail if it's not)
+        $email = trim($line['Email'] ?? '');
+        $isEmailValid = !empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL);
 
         // Verify template still exists (edge case: deleted mid-execution)
         $fullTemplatePath = public_path($templatePath);
@@ -244,21 +249,14 @@ class GenerateCertificates implements ShouldQueue
         // Clean up DOCX after successful PDF conversion
         $this->cleanupFile($docxPath, 'DOCX');
 
-        // Queue email (async) - don't fail row if email fails
-        try {
-            Mail::to($line['Email'])
-                ->queue(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $line['Email']));
-
-            Log::info('[CertificateJob] Email queued successfully', [
+        // Handle email sending - check validity first, then attempt to send
+        if (!$isEmailValid || empty($email)) {
+            // Invalid or missing email - add to failed certificates for admin
+            $errorMessage = empty($email) ? 'Email address is missing' : "Invalid email address: {$email}";
+            
+            Log::warning('[CertificateJob] Invalid or missing email, certificate will be sent to admin', [
                 'row' => $rowNumber,
-                'email' => $line['Email'],
-            ]);
-        } catch (Throwable $e) {
-            // Log but don't throw - email failure shouldn't fail the row
-            Log::error('[CertificateJob] Failed to queue email', [
-                'row' => $rowNumber,
-                'email' => $line['Email'],
-                'error' => $e->getMessage(),
+                'email' => $email,
             ]);
 
             // Store failed certificate info for manual sending to admin
@@ -266,10 +264,10 @@ class GenerateCertificates implements ShouldQueue
                 'Row' => $rowNumber,
                 'Name'  => $line['Name'] ?? '',
                 'Title' => $line['Title'] ?? '',
-                'Email' => $line['Email'] ?? '',
+                'Email' => $email,
                 'Phone' => $line['Phone'] ?? '',
-                'Error' => 'Email queuing failed: '.$e->getMessage(),
-                'ErrorType' => 'email',
+                'Error' => $errorMessage,
+                'ErrorType' => 'validation',
                 'Timestamp' => now()->toDateTimeString(),
                 'pdfPath' => $pdfPath, // Keep PDF path for attachment
             ];
@@ -279,12 +277,55 @@ class GenerateCertificates implements ShouldQueue
                 'Row' => $rowNumber,
                 'Name'  => $line['Name'] ?? '',
                 'Title' => $line['Title'] ?? '',
-                'Email' => $line['Email'] ?? '',
+                'Email' => $email,
                 'Phone' => $line['Phone'] ?? '',
-                'Error' => 'Email queuing failed: '.$e->getMessage(),
-                'ErrorType' => 'email',
+                'Error' => $errorMessage,
+                'ErrorType' => 'validation',
                 'Timestamp' => now()->toDateTimeString(),
             ];
+        } else {
+            // Email is valid - attempt to send
+            try {
+                Mail::to($email)
+                    ->queue(new CertificateMail($pdfPath, $line['Name'], $line['Title'], $email));
+
+                Log::info('[CertificateJob] Email queued successfully', [
+                    'row' => $rowNumber,
+                    'email' => $email,
+                ]);
+            } catch (Throwable $e) {
+                // Log but don't throw - email failure shouldn't fail the row
+                Log::error('[CertificateJob] Failed to queue email', [
+                    'row' => $rowNumber,
+                    'email' => $email,
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Store failed certificate info for manual sending to admin
+                $this->failedEmailCertificates[] = [
+                    'Row' => $rowNumber,
+                    'Name'  => $line['Name'] ?? '',
+                    'Title' => $line['Title'] ?? '',
+                    'Email' => $email,
+                    'Phone' => $line['Phone'] ?? '',
+                    'Error' => 'Email queuing failed: '.$e->getMessage(),
+                    'ErrorType' => 'email',
+                    'Timestamp' => now()->toDateTimeString(),
+                    'pdfPath' => $pdfPath, // Keep PDF path for attachment
+                ];
+
+                // Also add to general errors array
+                $this->errors[] = [
+                    'Row' => $rowNumber,
+                    'Name'  => $line['Name'] ?? '',
+                    'Title' => $line['Title'] ?? '',
+                    'Email' => $email,
+                    'Phone' => $line['Phone'] ?? '',
+                    'Error' => 'Email queuing failed: '.$e->getMessage(),
+                    'ErrorType' => 'email',
+                    'Timestamp' => now()->toDateTimeString(),
+                ];
+            }
         }
 
         // Note: PDF is needed for email attachment
