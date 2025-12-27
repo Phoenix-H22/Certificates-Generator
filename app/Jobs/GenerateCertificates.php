@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Mail\AdminErrorReportMail;
 use App\Mail\CertificateMail;
+use App\Mail\FailedCertificatesMail;
 use App\Models\Setting;
 use App\Services\WhatsAppService;
 use Exception;
@@ -32,6 +33,9 @@ class GenerateCertificates implements ShouldQueue
 
     /** Row‑level errors collected for the admin report */
     protected array  $errors = [];
+
+    /** Failed email certificates (with PDF paths) for manual sending */
+    protected array  $failedEmailCertificates = [];
 
     /** Job directory for this execution */
     protected string $jobDir;
@@ -135,10 +139,15 @@ class GenerateCertificates implements ShouldQueue
                 'total_rows' => $rowCount,
                 'processed' => $processedCount,
                 'errors' => count($this->errors),
+                'failed_emails' => count($this->failedEmailCertificates),
                 'duration_seconds' => $duration,
                 'rows_per_second' => $rowCount > 0 ? round($processedCount / $duration, 2) : 0,
             ]);
 
+            // Send failed email certificates to admin for manual sending
+            $this->sendFailedCertificatesToAdmin();
+
+            // Send general error report
             $this->sendAdminReport();
 
             // Optional: Clean up uploaded Excel file
@@ -252,7 +261,20 @@ class GenerateCertificates implements ShouldQueue
                 'error' => $e->getMessage(),
             ]);
 
-            // Add to errors but continue processing
+            // Store failed certificate info for manual sending to admin
+            $this->failedEmailCertificates[] = [
+                'Row' => $rowNumber,
+                'Name'  => $line['Name'] ?? '',
+                'Title' => $line['Title'] ?? '',
+                'Email' => $line['Email'] ?? '',
+                'Phone' => $line['Phone'] ?? '',
+                'Error' => 'Email queuing failed: '.$e->getMessage(),
+                'ErrorType' => 'email',
+                'Timestamp' => now()->toDateTimeString(),
+                'pdfPath' => $pdfPath, // Keep PDF path for attachment
+            ];
+
+            // Also add to general errors array
             $this->errors[] = [
                 'Row' => $rowNumber,
                 'Name'  => $line['Name'] ?? '',
@@ -265,13 +287,10 @@ class GenerateCertificates implements ShouldQueue
             ];
         }
 
-        // Optional: Clean up PDF after email is queued
-        // Note: PDF is needed for email attachment, so cleanup happens after email is sent
-        // Consider implementing a scheduled job to clean up old PDFs
-        if (env('CLEANUP_PDFS_IMMEDIATELY', false)) {
-            // Schedule cleanup after a delay to ensure email is sent
-            // For now, we'll keep the PDF
-        }
+        // Note: PDF is needed for email attachment
+        // For failed emails, PDF is kept and sent to admin for manual distribution
+        // For successful emails, PDF cleanup can be handled by a scheduled job
+        // We don't delete PDFs here to ensure failed email certificates are available
 
         /* ---------------- WhatsApp ------------------ */
 //        $resp = WhatsAppService::sendMessage(
@@ -362,6 +381,51 @@ class GenerateCertificates implements ShouldQueue
         if (env('CLEANUP_ERROR_REPORTS', false)) {
             // Schedule cleanup after email is sent
             // For now, keep the report for reference
+        }
+    }
+
+    /**
+     * Send failed email certificates to admin for manual sending
+     */
+    private function sendFailedCertificatesToAdmin(): void
+    {
+        if (empty($this->failedEmailCertificates)) {
+            Log::info('[CertificateJob] No failed email certificates to send');
+            return;
+        }
+
+        // Filter out certificates where PDF doesn't exist
+        $validCertificates = [];
+        foreach ($this->failedEmailCertificates as $cert) {
+            if (isset($cert['pdfPath']) && file_exists($cert['pdfPath'])) {
+                $validCertificates[] = $cert;
+            } else {
+                Log::warning('[CertificateJob] Failed certificate PDF not found', [
+                    'name' => $cert['Name'] ?? 'Unknown',
+                    'email' => $cert['Email'] ?? 'Unknown',
+                    'pdf_path' => $cert['pdfPath'] ?? 'Not set',
+                ]);
+            }
+        }
+
+        if (empty($validCertificates)) {
+            Log::warning('[CertificateJob] No valid certificate PDFs found for failed emails');
+            return;
+        }
+
+        try {
+            Mail::to(config('mail.admin_email'))
+                ->queue(new FailedCertificatesMail($validCertificates, count($validCertificates)));
+
+            Log::info('[CertificateJob] Failed certificates email queued to admin', [
+                'count' => count($validCertificates),
+                'admin_email' => config('mail.admin_email'),
+            ]);
+        } catch (Throwable $e) {
+            Log::error('[CertificateJob] Failed to queue failed certificates email to admin', [
+                'error' => $e->getMessage(),
+                'count' => count($validCertificates),
+            ]);
         }
     }
 
