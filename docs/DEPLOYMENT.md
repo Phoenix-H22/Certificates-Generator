@@ -92,7 +92,7 @@ sudo supervisorctl status
 * * * * * cd /var/www/.../asfeccert.phoenixtechs.tech && /opt/php82/bin/php artisan schedule:run >> /dev/null 2>&1
 ```
 
-تشغّل يومياً: `certificates:prune` (حذف ملفات الدفعات الأقدم من `CERT_RETENTION_DAYS`، الصفوف تبقى للتحقق) و`queue:prune-batches` و`queue:prune-failed`.
+يشغّل أول كل شهر (04:00) `certificates:cleanup`: حذف ملفات الدفعات الأقدم من `CERT_RETENTION_DAYS` (الصفوف تبقى للتحقق)، الملفات المؤقتة، السجلات المدوَّرة الأقدم من 30 يوماً، وتفريغ أي سجل تجاوز 50MB. ويومياً `queue:prune-batches` و`queue:prune-failed`. اضبط `LOG_CHANNEL=daily` في `.env` حتى تُدوَّر السجلات تلقائياً. تجربة بدون حذف: `php artisan certificates:cleanup --dry-run`.
 
 ## 7. nginx
 
