@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "certgen",
+      "runtimeExecutable": "D:/laragon/bin/php/php-8.3/php.exe",
+      "runtimeArgs": ["-d", "extension=pdo_sqlite", "-d", "extension=sqlite3", "artisan", "serve", "--host=127.0.0.1", "--port=8765"],
+      "port": 8765
+    }
+  ]
+}

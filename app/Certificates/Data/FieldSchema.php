@@ -4,8 +4,10 @@ namespace App\Certificates\Data;
 
 use ArrayIterator;
 use Countable;
+use Illuminate\Contracts\Support\Arrayable;
 use InvalidArgumentException;
 use IteratorAggregate;
+use JsonSerializable;
 use Traversable;
 
 /**
@@ -15,8 +17,9 @@ use Traversable;
  * on every template and never part of the schema; see CORE_FIELDS.
  *
  * @implements IteratorAggregate<int, FieldDefinition>
+ * @implements Arrayable<int, array<string, mixed>>
  */
-final class FieldSchema implements Countable, IteratorAggregate
+final class FieldSchema implements Arrayable, Countable, IteratorAggregate, JsonSerializable
 {
     /** Recipient columns every batch must map, regardless of template. */
     public const CORE_FIELDS = [
@@ -27,7 +30,7 @@ final class FieldSchema implements Countable, IteratorAggregate
     ];
 
     /** Keys the renderer injects; templates may not redefine them. */
-    public const RESERVED_KEYS = ['name', 'title', 'email', 'phone', 'uuid', 'code', 'verify_url', 'issued_at', 'organisation'];
+    public const RESERVED_KEYS = ['name', 'title', 'email', 'phone', 'uuid', 'code', 'verify_url', 'download_url', 'issued_at', 'organisation', 'parent_organisation'];
 
     /** @var array<string, FieldDefinition> keyed by field key */
     private array $fields = [];
@@ -69,6 +72,12 @@ final class FieldSchema implements Countable, IteratorAggregate
     public function toArray(): array
     {
         return array_values(array_map(fn (FieldDefinition $f) => $f->toArray(), $this->fields));
+    }
+
+    /** @return list<array<string, mixed>> */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 
     /** @return list<FieldDefinition> */

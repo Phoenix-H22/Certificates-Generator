@@ -2,7 +2,9 @@
 
 namespace App\Enums;
 
-enum BrandAssetType: string
+use Filament\Support\Contracts\HasLabel;
+
+enum BrandAssetType: string implements HasLabel
 {
     case Logo = 'logo';
     case Signature = 'signature';
@@ -17,6 +19,11 @@ enum BrandAssetType: string
             self::Stamp => 'ختم',
             self::Background => 'خلفية',
         };
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
     }
 
     /** @return array<string, string> */

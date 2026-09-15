@@ -1,66 +1,102 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# مولّد الشهادات — ASFEC Certificates Generator
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+نظام لإصدار شهادات شكر وحضور عربية احترافية بالجملة: يرفع الأدمن ملف Excel بأسماء المشاركين، يختار تصميم القالب، فيتولّى النظام توليد ملف PDF لكل شهادة عبر Chromium، ويرسلها بالبريد الإلكتروني و/أو واتساب، ويتيح التحقق من صحتها عبر رمز QR.
 
-## About Laravel
+*English summary at the bottom.*
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## المميزات
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- **4 تصاميم جاهزة** (كلاسيكي ذهبي، حديث بسيط، رسمي مؤسسي، أنيق داكن) تُرندر من HTML/CSS بخطوط عربية مضمّنة (Amiri, Cairo, Tajawal, Noto Naskh) — لا اعتماد على Word أو LibreOffice.
+- **رمز QR + UUID + كود قصير على كل شهادة**، وصفحة تحقق عامة `/verify/{uuid|code}` تعرض حالة الشهادة (صحيحة / ملغاة / غير موجودة).
+- **مكتبة أصول**: شعارات متعددة، حتى 3 توقيعات (اسم + صفة + صورة)، ختم بموضع وميل وشفافية قابلة للضبط، خلفية اختيارية.
+- **حقول ديناميكية** لكل قالب: قيم ثابتة للدفعة (اسم الفعالية، التاريخ…) أو لكل صف من Excel، مع ربط تلقائي للأعمدة.
+- **دفعات** بحالة وتقدّم لحظي، ملف ZIP لكل الشهادات، تقرير أخطاء xlsx، وإجراءات إعادة الإرسال/إعادة التوليد/الإلغاء.
+- **لوحة تحكم Filament v4** عربية RTL بالكامل.
+- الأسماء الطويلة تصغر تلقائياً لتناسب المساحة بدل قصّها.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## المتطلبات
 
-## Learning Laravel
+| المكوّن | الإصدار |
+|---|---|
+| PHP | 8.2+ (8.3 موصى به) مع `intl gd zip mbstring fileinfo` |
+| Composer | 2.x |
+| Node.js | 18+ (لـ Puppeteer/Chromium) |
+| قاعدة بيانات | MySQL 8 (أو SQLite للتطوير) |
+| طابور | `QUEUE_CONNECTION=database` + عامل `queue:work` دائم |
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## التشغيل محلياً
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```bash
+git clone https://github.com/Phoenix-H22/Certificates-Generator.git
+cd Certificates-Generator
+composer install
+cp .env.example .env && php artisan key:generate
+# اضبط DB_* أو استخدم SQLite: DB_CONNECTION=sqlite و DB_DATABASE=<مسار مطلق>/database/database.sqlite
+php artisan migrate --seed          # الإعدادات + شعارات نموذجية + 4 قوالب
+php artisan storage:link
+npm ci                              # يحمّل Chrome for Testing (~150MB) — أو اضبط CERT_CHROME_PATH لكروم مثبّت
+php artisan make:filament-user      # أول أدمن (أو ADMIN_EMAIL/ADMIN_PASSWORD قبل الـ seed)
+php artisan certificates:thumbnails # صور القوالب في اللوحة
+php artisan serve
+php artisan queue:work --queue=render,deliver,default   # في طرفية أخرى
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+ثم افتح `http://localhost:8000/admin`.
 
-## Laravel Sponsors
+على Windows مع Laragon: اضبط في `.env`
+`CERT_CHROME_PATH="C:/Program Files/Google/Chrome/Application/chrome.exe"` ولا حاجة لتحميل Chrome عبر npm (`PUPPETEER_SKIP_DOWNLOAD=1 npm install`).
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+## كيف يعمل
 
-### Premium Partners
+```
+Excel ──► ProcessBatch ──► صف لكل شهادة (UUID + كود) ──► Bus::batch[ RenderCertificate → DeliverCertificate ]×N ──► FinalizeBatch
+                                                                 │                                                       │
+                                                        Blade design + Browsershot/Chromium ──► PDF              ZIP + تقرير + بريد للأدمن
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+- `app/Certificates/Rendering` — `CertificateRenderer` (HTML/PDF/PNG)، `CertificateDataFactory`، `DataMerger`، `QrCodeGenerator`.
+- `app/Certificates/Pipeline` — قراءة الملف، ربط الأعمدة، ZIP، تقرير الأخطاء، ملف النموذج.
+- `app/Certificates/Delivery` — `WhatsAppSender`, `MessageTemplate` (placeholders).
+- `app/Jobs` — `ProcessBatch`, `RenderCertificate`, `DeliverCertificate`, `FinalizeBatch`, `GenerateTemplateThumbnail`.
+- `resources/views/certificates/designs/*.blade.php` — التصاميم الأربعة؛ `layout.blade.php` والـ partials مشتركة.
+- الملفات المولّدة على disk خاص `storage/app/certificates` وتُقدَّم عبر `/files/...` (أدمن) أو `/c/{uuid}` (رابط موقّع منتهي الصلاحية).
 
-## Contributing
+## إضافة تصميم جديد
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+1. أضف حالة في `App\Enums\TemplateDesign` (اسم، وصف، لون افتراضي).
+2. أنشئ `resources/views/certificates/designs/<key-بشرطات>.blade.php` يمتد من `certificates.layout` ويستخدم partials `logos / signatures / stamp / qr`.
+3. ضع صورة نموذج في `public/images/designs/<key>.png` (`php artisan certificates:render-sample --design=<key> --png`).
+4. القوالب الموجودة تختار التصميم الجديد من اللوحة.
 
-## Code of Conduct
+## أوامر Artisan
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+| الأمر | الغرض |
+|---|---|
+| `certificates:batch {template} {sheet.xlsx} --fixed=k=v --via=email --now` | إنشاء دفعة من الطرفية (نفس مسار اللوحة) |
+| `certificates:render-sample [template] --png --html` | رندر عيّنة عبر Chromium الحقيقي (للفحص) |
+| `certificates:thumbnails --force` | إعادة توليد صور القوالب |
+| `certificates:prune --days=180 --dry-run` | حذف ملفات الدفعات القديمة (الصفوف تبقى للتحقق) |
 
-## Security Vulnerabilities
+## الاختبارات والجودة
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+composer lint          # Pint
+php artisan test       # Pest (يتخطى اختبارات Chromium)
+RENDER_TESTS=1 php artisan test --group=render   # رندر حقيقي
+```
 
-## License
+GitHub Actions يشغّل: Pint، الاختبارات على PHP 8.2 و8.3، رندر حقيقي بـ Chromium (يرفع PDF/PNG كـ artifact)، وفحص `config:cache` + منع `env()` خارج `config/`.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## النشر
+
+راجع [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): Node/Chromium، Supervisor للطوابير، cron، nginx، وسكربت النشر التلقائي `.github/workflows/deploy.yml` (ينشر عند كل push على `main`).
+
+## الخطوط والتراخيص
+
+الخطوط في `public/fonts` مرخّصة SIL OFL 1.1 (انظر `public/fonts/LICENSES.md`). الكود مرخّص MIT.
+
+---
+
+## English
+
+Bulk Arabic certificate generator built on Laravel 12 + Filament v4. Admins upload an Excel sheet, pick one of four HTML/CSS designs, and the system renders a PDF per certificate through headless Chromium (spatie/browsershot), delivers it by e-mail and/or WhatsApp, and lets anyone verify it via the QR code (UUID + short code) printed on every certificate. Generated files live on a private disk; certificates are database records created before rendering, so every PDF is verifiable at `/verify/{uuid}`. See `docs/DEPLOYMENT.md` for the Ubuntu setup (Node + Chromium, Supervisor queues, cron).

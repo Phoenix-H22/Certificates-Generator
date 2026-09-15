@@ -2,7 +2,10 @@
 
 namespace App\Enums;
 
-enum TemplateDesign: string
+use Filament\Support\Contracts\HasDescription;
+use Filament\Support\Contracts\HasLabel;
+
+enum TemplateDesign: string implements HasDescription, HasLabel
 {
     case ClassicGold = 'classic_gold';
     case ModernMinimal = 'modern_minimal';
@@ -29,10 +32,26 @@ enum TemplateDesign: string
         };
     }
 
+    public function getLabel(): string
+    {
+        return $this->label();
+    }
+
+    public function getDescription(): string
+    {
+        return $this->description();
+    }
+
     /** Blade view name that renders this design. */
     public function view(): string
     {
         return 'certificates.designs.'.str_replace('_', '-', $this->value);
+    }
+
+    /** Static sample image used by the design picker. */
+    public function sampleImage(): string
+    {
+        return asset('images/designs/'.$this->value.'.png');
     }
 
     /** Default accent colour used when the template has none configured. */

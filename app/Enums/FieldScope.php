@@ -2,7 +2,9 @@
 
 namespace App\Enums;
 
-enum FieldScope: string
+use Filament\Support\Contracts\HasLabel;
+
+enum FieldScope: string implements HasLabel
 {
     /** One value for the whole batch (e.g. event name). */
     case Fixed = 'fixed';
@@ -16,6 +18,11 @@ enum FieldScope: string
             self::Fixed => 'ثابت لكل الدفعة',
             self::Row => 'لكل صف في الملف',
         };
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
     }
 
     /** @return array<string, string> */

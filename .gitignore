@@ -33,4 +33,5 @@ Thumbs.db
 
 # Filament assets are published by `composer install` (post-autoload-dump → filament:upgrade)
 /public/css/filament
+/public/fonts/filament
 /public/js/filament

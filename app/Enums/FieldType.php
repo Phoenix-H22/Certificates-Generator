@@ -2,7 +2,9 @@
 
 namespace App\Enums;
 
-enum FieldType: string
+use Filament\Support\Contracts\HasLabel;
+
+enum FieldType: string implements HasLabel
 {
     case Text = 'text';
     case Date = 'date';
@@ -19,6 +21,11 @@ enum FieldType: string
             self::Phone => 'هاتف',
             self::Number => 'رقم',
         };
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
     }
 
     /** @return list<string> Laravel validation rules for a value of this type. */

@@ -2,7 +2,10 @@
 
 namespace App\Enums;
 
-enum CertificateStatus: string
+use Filament\Support\Contracts\HasColor;
+use Filament\Support\Contracts\HasLabel;
+
+enum CertificateStatus: string implements HasColor, HasLabel
 {
     case Pending = 'pending';
     case Rendered = 'rendered';
@@ -27,6 +30,16 @@ enum CertificateStatus: string
             self::RenderFailed => 'danger',
             self::Revoked => 'warning',
         };
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
+    }
+
+    public function getColor(): string
+    {
+        return $this->color();
     }
 
     /** @return array<string, string> */

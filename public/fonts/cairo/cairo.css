@@ -1,0 +1,8 @@
+/* Self-hosted Cairo for the admin panel and public pages (SIL OFL). */
+@font-face {
+    font-family: 'Cairo';
+    src: url('Cairo-Variable.ttf') format('truetype');
+    font-weight: 200 1000;
+    font-style: normal;
+    font-display: swap;
+}

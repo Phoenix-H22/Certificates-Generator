@@ -2,7 +2,10 @@
 
 namespace App\Enums;
 
-enum BatchStatus: string
+use Filament\Support\Contracts\HasColor;
+use Filament\Support\Contracts\HasLabel;
+
+enum BatchStatus: string implements HasColor, HasLabel
 {
     case Draft = 'draft';
     case Queued = 'queued';
@@ -38,6 +41,16 @@ enum BatchStatus: string
             self::CompletedWithErrors => 'warning',
             self::Failed, self::Cancelled => 'danger',
         };
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
+    }
+
+    public function getColor(): string
+    {
+        return $this->color();
     }
 
     public function isTerminal(): bool

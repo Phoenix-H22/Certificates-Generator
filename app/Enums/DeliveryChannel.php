@@ -2,7 +2,9 @@
 
 namespace App\Enums;
 
-enum DeliveryChannel: string
+use Filament\Support\Contracts\HasLabel;
+
+enum DeliveryChannel: string implements HasLabel
 {
     case Email = 'email';
     case WhatsApp = 'whatsapp';
@@ -13,6 +15,11 @@ enum DeliveryChannel: string
             self::Email => 'البريد الإلكتروني',
             self::WhatsApp => 'واتساب',
         };
+    }
+
+    public function getLabel(): string
+    {
+        return $this->label();
     }
 
     /** @return array<string, string> */
