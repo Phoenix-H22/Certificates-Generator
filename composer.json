@@ -1,42 +1,29 @@
 {
-    "name": "laravel/laravel",
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "asfec/certificates-generator",
     "type": "project",
-    "description": "The Laravel Framework.",
-    "keywords": ["framework", "laravel"],
+    "description": "Arabic certificate generator: HTML templates rendered to PDF by Chromium, bulk batches from Excel, e-mail/WhatsApp delivery and public QR verification.",
+    "keywords": ["laravel", "certificates", "pdf", "filament"],
     "license": "MIT",
     "require": {
-        "php": "^8.0.2",
-        "ext-curl": "*",
-        "barryvdh/laravel-dompdf": "^2.0",
-        "barryvdh/laravel-snappy": "^1.0",
-        "carlos-meneses/laravel-mpdf": "^2.1",
-        "egulias/email-validator": "^4.0",
-        "guzzlehttp/guzzle": "^7.2",
-        "h4cc/wkhtmltoimage-amd64": "0.12.x",
-        "h4cc/wkhtmltopdf-amd64": "0.12.x",
-        "h4cc/wkhtmltopdf-i386": "0.12.x",
-        "laravel/framework": "^9.19",
-        "laravel/sanctum": "^3.0",
-        "laravel/tinker": "^2.7",
-        "laravel/ui": "^4.2",
-        "monolog/monolog": "^2.9",
-        "mpdf/mpdf": "^8.0",
-        "phpoffice/phpword": "^1.2",
-        "propaganistas/laravel-phone": "^5.1",
-        "rap2hpoutre/fast-excel": "^5.4",
-        "spatie/browsershot": "^3.57",
-        "spipu/html2pdf": "^5.2",
-        "symfony/process": "^6.4",
-        "wemersonjanuario/wkhtmltopdf-windows": "0.12.2.3"
+        "php": "^8.2",
+        "chillerlan/php-qrcode": "^5.0",
+        "filament/filament": "^4.0",
+        "laravel/framework": "^12.0",
+        "laravel/tinker": "^2.10.1",
+        "propaganistas/laravel-phone": "^6.0",
+        "rap2hpoutre/fast-excel": "^5.6",
+        "spatie/browsershot": "^5.0"
     },
     "require-dev": {
-        "fakerphp/faker": "^1.9.1",
-        "laravel/pint": "^1.0",
-        "laravel/sail": "^1.0.1",
-        "mockery/mockery": "^1.4.4",
-        "nunomaduro/collision": "^6.1",
-        "phpunit/phpunit": "^9.5.10",
-        "spatie/laravel-ignition": "^1.0"
+        "fakerphp/faker": "^1.23",
+        "laravel-lang/common": "^6.0",
+        "laravel/pail": "^1.2.2",
+        "laravel/pint": "^1.24",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "pestphp/pest": "^3.8",
+        "pestphp/pest-plugin-laravel": "^3.2"
     },
     "autoload": {
         "psr-4": {
@@ -51,9 +38,28 @@
         }
     },
     "scripts": {
+        "setup": [
+            "composer install",
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php artisan key:generate",
+            "@php artisan migrate --force",
+            "@php artisan storage:link",
+            "npm ci"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185\" \"php artisan serve\" \"php artisan queue:listen --queue=render,deliver,default --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" --names=server,queue,logs --kill-others"
+        ],
+        "test": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test"
+        ],
+        "lint": "pint --test",
+        "fix": "pint",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
-            "@php artisan package:discover --ansi"
+            "@php artisan package:discover --ansi",
+            "@php artisan filament:upgrade"
         ],
         "post-update-cmd": [
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
@@ -63,6 +69,9 @@
         ],
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi"
+        ],
+        "pre-package-uninstall": [
+            "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
         ]
     },
     "extra": {
@@ -75,7 +84,8 @@
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
-            "pestphp/pest-plugin": true
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
         }
     },
     "minimum-stability": "stable",

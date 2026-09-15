@@ -1,38 +1,49 @@
 <?php
 
-use App\Http\Controllers\GenerateController;
-use App\Http\Controllers\TemplateController;
-use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\AdminFileController;
+use App\Http\Controllers\PublicDownloadController;
+use App\Http\Controllers\TemplatePreviewController;
+use App\Http\Controllers\VerificationController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\PdfController;
-use App\Http\Controllers\HomeController;
+
+Route::view('/', 'welcome')->name('home')->middleware('security.headers');
+
+// v1 dashboard URL — everything lives in the Filament panel now.
+Route::redirect('/home', '/admin');
 
 /*
 |--------------------------------------------------------------------------
-| Web Routes
+| Public verification (strict throttling + hardening headers)
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
-|
 */
-require __DIR__.'/auth.php';
-Route::get('/', function () {
-    return view('welcome');
+Route::middleware(['security.headers', 'throttle:verify'])->group(function () {
+    Route::get('/verify', [VerificationController::class, 'search'])->name('verify.search');
+    Route::get('/verify/{identifier}', [VerificationController::class, 'show'])
+        ->where('identifier', '[A-Za-z0-9 \-]{1,64}')
+        ->name('verify.show');
 });
 
-Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth');
+/*
+|--------------------------------------------------------------------------
+| Admin-only template preview (HTML / PDF / PNG with sample data)
+|--------------------------------------------------------------------------
+*/
+Route::get('/admin-preview/templates/{template}', TemplatePreviewController::class)
+    ->middleware(['web', 'auth', 'can:admin'])
+    ->name('templates.preview');
 
+/*
+|--------------------------------------------------------------------------
+| Files: signed public download + authenticated admin downloads
+|--------------------------------------------------------------------------
+*/
+Route::get('/c/{certificate}', PublicDownloadController::class)
+    ->middleware(['security.headers', 'signed', 'throttle:downloads'])
+    ->name('certificates.public-download');
 
-Route::get('/home', [HomeController::class, 'index'])->name('home')->middleware('auth');
-Route::get('/cert', [HomeController::class, 'cert'])->name('certificate')->middleware('auth');
-Route::get('/pdf', [PdfController::class, 'index'])->middleware('auth');
-Route::get('/export-pdf', [PdfController::class, 'exportPdf'])->middleware('auth');
-Route::post('/news', [HomeController::class, 'news']);
-Route::post('/upload-template', [TemplateController::class, 'upload_template'])->middleware('auth')->name('upload-template');
-Route::get('/download-template', [TemplateController::class, 'download_template'])->middleware('auth')->name('download-template');
-Route::get('/download-sheet', [GenerateController::class, 'download_sample'])->middleware('auth')->name('download-sheet');
-Route::post('/upload-sheet', [GenerateController::class, 'upload_sheet'])->middleware('auth')->name('upload-sheet');
-
-
+Route::middleware(['web', 'auth', 'can:admin'])->prefix('files')->name('files.')->group(function () {
+    Route::get('/certificates/{certificate}/pdf', [AdminFileController::class, 'certificatePdf'])->name('certificate.pdf');
+    Route::get('/batches/{batch}/zip', [AdminFileController::class, 'batchZip'])->name('batch.zip');
+    Route::get('/batches/{batch}/errors.xlsx', [AdminFileController::class, 'batchErrors'])->name('batch.errors');
+    Route::get('/batches/{batch}/source', [AdminFileController::class, 'batchSource'])->name('batch.source');
+});

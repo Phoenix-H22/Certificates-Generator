@@ -35,7 +35,9 @@ jobs:
             export COMPOSER_HOME="${HOME}/.composer"
 
             APP_DIR="/var/www/phoenixtechs-asfeccert/data/www/asfeccert.phoenixtechs.tech"
-            PHP="/opt/php82/bin/php"
+            # PHP 8.2+ is required (8.3 recommended). Update when the site's PHP version changes in FastPanel.
+            PHP="/opt/php83/bin/php"
+            [ -x "$PHP" ] || PHP="/opt/php82/bin/php"
             COMPOSER="/usr/local/bin/composer"
 
             cd "$APP_DIR"
@@ -70,6 +72,19 @@ jobs:
               echo "Skipping composer install (no composer.json/lock changes)"
             fi
 
+            if command -v npm >/dev/null 2>&1; then
+              if printf '%s\n' "$CHANGED" | grep -qxE 'package(-lock)?\.json' \
+                || [ ! -d node_modules/puppeteer ]; then
+                echo "Installing Node dependencies (puppeteer)"
+                npm ci --omit=dev --no-audit --no-fund
+                npx puppeteer browsers install chrome
+              else
+                echo "Skipping npm ci (no package.json/lock changes)"
+              fi
+            else
+              echo "WARNING: npm not found — certificate rendering needs Node.js + Chromium (see docs/DEPLOYMENT.md)"
+            fi
+
             if printf '%s\n' "$CHANGED" | grep -qE '^database/migrations/'; then
               echo "Running migrations"
               "$PHP" artisan migrate --force
@@ -77,8 +92,34 @@ jobs:
               echo "Skipping migrate (no new migration files)"
             fi
 
-            echo "Clearing Laravel caches"
+            [ -L public/storage ] || "$PHP" artisan storage:link
+
+            echo "Refreshing caches"
             "$PHP" artisan optimize:clear
+            "$PHP" artisan optimize
+
+            echo "Restarting all queues (render, deliver, default)"
             "$PHP" artisan queue:restart
+
+            # Workers are managed by Supervisor (deploy/supervisor/certificates-generator.conf).
+            # queue:restart above makes them exit gracefully and Supervisor brings them back.
+            # Never spawn ad-hoc nohup workers on a Supervisor host: that duplicates workers
+            # and bypasses the nice/ionice/memory limits that protect the other sites.
+            if command -v supervisorctl >/dev/null 2>&1; then
+              restarted=""
+              for group in asfeccert cg asfeccert-queue; do
+                if supervisorctl status "${group}:*" >/dev/null 2>&1; then
+                  supervisorctl restart "${group}:*" && restarted="$group"
+                  break
+                fi
+              done
+              if [ -n "$restarted" ]; then
+                echo "Supervisor group ${restarted}:* restarted"
+              else
+                echo "WARNING: no Supervisor program found for this app; install deploy/supervisor/certificates-generator.conf"
+              fi
+            else
+              echo "WARNING: Supervisor not installed; queue workers must be started manually (see docs/DEPLOYMENT.md)"
+            fi
 
             echo "Deployed $(git log -1 --oneline)"

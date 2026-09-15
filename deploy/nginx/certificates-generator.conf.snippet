@@ -1,0 +1,13 @@
+# Add inside the site's `server { ... }` block (FastPanel: "Additional nginx directives").
+
+# Uploads: participant sheets and brand images.
+client_max_body_size 32m;
+
+# Never serve the private certificate store, even if a symlink appears.
+location ~ ^/storage/certificates/ { return 404; }
+
+# Long-lived caching for self-hosted fonts and design samples.
+location ~* ^/(fonts|images/designs)/ {
+    expires 30d;
+    add_header Cache-Control "public";
+}
