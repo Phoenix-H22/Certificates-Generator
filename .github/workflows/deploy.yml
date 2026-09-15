@@ -101,36 +101,25 @@ jobs:
             echo "Restarting all queues (render, deliver, default)"
             "$PHP" artisan queue:restart
 
-            restart_via_supervisor() {
-              command -v supervisorctl >/dev/null 2>&1 || return 1
-              supervisorctl restart cg:* 2>/dev/null
-            }
-
-            if restart_via_supervisor; then
-              echo "Supervisor group cg:* restarted"
-            else
-              echo "Recycling app queue workers"
-              pids="$(pgrep -f "${APP_DIR}/artisan queue:work" || true)"
-              if [ -n "$pids" ]; then
-                echo "TERM pids: $pids"
-                # shellcheck disable=SC2086
-                kill -TERM $pids 2>/dev/null || true
-                sleep 3
-              fi
-
-              start_if_missing() {
-                local queues="$1"
-                local log="$2"
-                if pgrep -f "${APP_DIR}/artisan queue:work --queue=${queues}" >/dev/null 2>&1; then
-                  echo "Already running: ${queues}"
-                  return
+            # Workers are managed by Supervisor (deploy/supervisor/certificates-generator.conf).
+            # queue:restart above makes them exit gracefully and Supervisor brings them back.
+            # Never spawn ad-hoc nohup workers on a Supervisor host: that duplicates workers
+            # and bypasses the nice/ionice/memory limits that protect the other sites.
+            if command -v supervisorctl >/dev/null 2>&1; then
+              restarted=""
+              for group in asfeccert cg asfeccert-queue; do
+                if supervisorctl status "${group}:*" >/dev/null 2>&1; then
+                  supervisorctl restart "${group}:*" && restarted="$group"
+                  break
                 fi
-                nohup "$PHP" artisan queue:work --queue="${queues}" --sleep=2 --tries=3 --timeout=180 --max-time=3600 >>"$log" 2>&1 &
-                echo "Started worker ${queues} pid $!"
-              }
-
-              start_if_missing "render" "${APP_DIR}/storage/logs/queue-render.log"
-              start_if_missing "deliver,default" "${APP_DIR}/storage/logs/queue-deliver.log"
+              done
+              if [ -n "$restarted" ]; then
+                echo "Supervisor group ${restarted}:* restarted"
+              else
+                echo "WARNING: no Supervisor program found for this app; install deploy/supervisor/certificates-generator.conf"
+              fi
+            else
+              echo "WARNING: Supervisor not installed; queue workers must be started manually (see docs/DEPLOYMENT.md)"
             fi
 
             echo "Deployed $(git log -1 --oneline)"

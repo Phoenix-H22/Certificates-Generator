@@ -4,7 +4,7 @@
 
 ## 1. PHP
 
-- PHP **8.2 أو أحدث** (8.3 موصى به). في FastPanel اختر إصدار PHP للموقع من لوحة الموقع، ثم تأكد أن مسار الـ CLI صحيح (`/opt/php83/bin/php`) وحدّثه في:
+- PHP **8.2 أو أحدث** (8.3 موصى به). في FastPanel اختر إصدار PHP للموقع من لوحة الموقع، ثم تأكد أن مسار الـ CLI صحيح (`/opt/php82/bin/php`) وحدّثه في:
   - `.github/workflows/deploy.yml` (المتغيّر `PHP`)
   - `deploy/supervisor/certificates-generator.conf`
 - الامتدادات المطلوبة: `mbstring intl gd zip fileinfo curl pdo_mysql xml dom` (و`pdo_sqlite` للاختبارات فقط).
@@ -76,20 +76,20 @@ ls storage/app/render-tests/
 
 ```bash
 sudo apt-get install -y supervisor
-sudo cp deploy/supervisor/certificates-generator.conf /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/certificates-generator.conf /etc/supervisor/conf.d/asfeccert-queue.conf   # يستبدل ملف العامل القديم (PHP 8.1)
 # عدّل المسارات ومستخدم الموقع داخل الملف
 sudo supervisorctl reread && sudo supervisorctl update
 sudo supervisorctl status
 ```
 
-- طابور `render`: عامل واحد (Chromium ≈ 300MB RAM لكل عملية). ارفعه إلى 2 فقط إذا كانت الذاكرة ≥ 4GB.
-- طابور `deliver,default`: عاملان للإرسال والتجميع.
+- طابور `render`: عامل واحد فقط (Chromium ≈ 300MB RAM لكل عملية) مع `nice/ionice` و`--memory=256` حتى لا يزاحم المواقع الأخرى على نفس الخادم. لا ترفع العدد.
+- طابور `deliver,default`: عامل واحد للإرسال والتجميع.
 - بعد كل نشر: `php artisan queue:restart` (موجود في سكربت النشر).
 
 ## 6. المهام المجدولة (cron)
 
 ```
-* * * * * cd /var/www/.../asfeccert.phoenixtechs.tech && /opt/php83/bin/php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /var/www/.../asfeccert.phoenixtechs.tech && /opt/php82/bin/php artisan schedule:run >> /dev/null 2>&1
 ```
 
 تشغّل يومياً: `certificates:prune` (حذف ملفات الدفعات الأقدم من `CERT_RETENTION_DAYS`، الصفوف تبقى للتحقق) و`queue:prune-batches` و`queue:prune-failed`.

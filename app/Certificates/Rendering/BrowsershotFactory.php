@@ -31,6 +31,15 @@ final class BrowsershotFactory
                 '--font-render-hinting=none',
                 '--disable-gpu',
                 '--allow-file-access-from-files',
+                // Keep each render lean on shared servers: no extensions, no
+                // background services, no renderer process explosion.
+                '--disable-extensions',
+                '--disable-background-networking',
+                '--disable-default-apps',
+                '--disable-sync',
+                '--no-first-run',
+                '--renderer-process-limit=1',
+                '--js-flags=--max-old-space-size=128',
             ])
             ->setEnvironmentOptions(['LANG' => 'ar_EG.UTF-8']);
 
