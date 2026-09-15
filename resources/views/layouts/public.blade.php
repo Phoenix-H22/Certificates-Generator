@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
     <title>@yield('title', config('app.name'))</title>
-    <link rel="stylesheet" href="{{ asset('css/public.css') }}">
+    @php $cssPath = public_path('css/public.css'); @endphp
+    <link rel="stylesheet" href="{{ asset('css/public.css') }}?v={{ is_file($cssPath) ? filemtime($cssPath) : '1' }}">
 </head>
 <body>
 <main class="page">
