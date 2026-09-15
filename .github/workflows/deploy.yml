@@ -94,9 +94,23 @@ jobs:
 
             [ -L public/storage ] || "$PHP" artisan storage:link
 
+            # When the SSH user is root, everything composer/npm just wrote belongs to root.
+            # Hand it back to the site user so the queue workers (which run as that user)
+            # can read vendor/, execute Puppeteer's Chrome and write to storage/.
+            SITE_USER="phoenixtechs-asfeccert"
+            RUN_AS=""
+            if [ "$(id -u)" = "0" ]; then
+              echo "Fixing ownership (deploy ran as root)"
+              chown -R "$SITE_USER:$SITE_USER" vendor node_modules storage bootstrap/cache public/css public/js 2>/dev/null || true
+              [ -d "$HOME/.cache/puppeteer" ] && chown -R "$SITE_USER:$SITE_USER" "$HOME/.cache/puppeteer"
+              RUN_AS="runuser -u $SITE_USER --"
+            fi
+
             echo "Refreshing caches"
             "$PHP" artisan optimize:clear
             "$PHP" artisan optimize
+            "$PHP" artisan icons:cache || true
+            [ "$(id -u)" = "0" ] && chown -R "$SITE_USER:$SITE_USER" bootstrap/cache storage 2>/dev/null || true
 
             echo "Restarting all queues (render, deliver, default)"
             "$PHP" artisan queue:restart
@@ -121,5 +135,15 @@ jobs:
             else
               echo "WARNING: Supervisor not installed; queue workers must be started manually (see docs/DEPLOYMENT.md)"
             fi
+
+            echo "Post-deploy render check (real Chromium, as the site user)"
+            if $RUN_AS "$PHP" artisan certificates:render-sample classic-gold >/tmp/asfeccert-render-check.log 2>&1; then
+              grep -F "→" /tmp/asfeccert-render-check.log || cat /tmp/asfeccert-render-check.log
+            else
+              cat /tmp/asfeccert-render-check.log
+              echo "::error::Chromium render failed after deploy — certificates will not be generated until this is fixed (see docs/DEPLOYMENT.md)"
+              exit 1
+            fi
+
 
             echo "Deployed $(git log -1 --oneline)"
