@@ -52,7 +52,8 @@ final class DataMerger
 
         $data['name'] = $this->cleanText($this->cell($row, $columnMap['name'] ?? null));
         $data['title'] = $this->cleanText($this->cell($row, $columnMap['title'] ?? null));
-        $data['email'] = EmailNormalizer::normalize($this->cell($row, $columnMap['email'] ?? null));
+        $email = EmailNormalizer::normalize($this->cell($row, $columnMap['email'] ?? null));
+        $data['email'] = EmailNormalizer::isValid($email) ? $email : null;
         $data['phone'] = PhoneNormalizer::normalize($this->cell($row, $columnMap['phone'] ?? null));
 
         $this->validate($schema, $data, $rowNumber);

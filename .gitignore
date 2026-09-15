@@ -30,3 +30,7 @@ Thumbs.db
 /database/database.sqlite
 /.phpunit.cache
 .env.backup-v1
+
+# Filament assets are published by `composer install` (post-autoload-dump → filament:upgrade)
+/public/css/filament
+/public/js/filament

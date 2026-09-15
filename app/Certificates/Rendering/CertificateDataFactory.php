@@ -120,7 +120,7 @@ final class CertificateDataFactory
             ],
             background: $template->background()?->dataUri(),
             layout: $layout,
-            qrSvg: $this->qr->svg($verifyUrl, $light ? '#111111' : '#111111'),
+            qrSvg: $this->qr->svg($verifyUrl),
             uuid: $uuid,
             code: $code,
             verifyUrl: $verifyUrl,

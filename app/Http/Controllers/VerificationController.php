@@ -10,6 +10,7 @@ use App\Models\OrganisationSettings;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -29,7 +30,7 @@ class VerificationController extends Controller
         return redirect()->route('verify.show', ['identifier' => $identifier]);
     }
 
-    public function show(Request $request, string $identifier): View
+    public function show(Request $request, string $identifier): View|Response
     {
         $organisation = OrganisationSettings::current();
         $certificate = Certificate::byIdentifier($identifier)->with('template', 'batch')->first();

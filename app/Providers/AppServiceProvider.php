@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Certificates\Delivery\WhatsAppSender;
 use App\Certificates\Rendering\BrowsershotFactory;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -15,6 +16,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(BrowsershotFactory::class, fn () => BrowsershotFactory::fromConfig());
+        $this->app->bind(WhatsAppSender::class, fn () => WhatsAppSender::fromConfig());
     }
 
     public function boot(): void
@@ -23,5 +25,8 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('verify', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('downloads', fn (Request $request) => Limit::perMinute(20)->by($request->ip()));
+
+        // Queue-side limiter for the WhatsApp gateway (see DeliverCertificate).
+        RateLimiter::for('whatsapp', fn () => Limit::perMinute((int) config('certificates.delivery.whatsapp_rate_per_minute', 20)));
     }
 }

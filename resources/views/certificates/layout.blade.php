@@ -148,19 +148,21 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 1mm;
-        font-size: 7pt;
+        gap: 0.6mm;
+        width: calc({{ $cert->qrSizeMm() }}mm + 14mm);
+        font-size: 6pt;
         line-height: 1.3;
+        text-align: center;
         color: var(--ink);
     }
     .qr svg { display: block; width: {{ $cert->qrSizeMm() }}mm; height: {{ $cert->qrSizeMm() }}mm; }
     .qr .qr-code { font-family: 'Cairo', monospace; font-weight: 700; letter-spacing: 0.08em; font-size: 8.5pt; }
-    .qr .qr-uuid { font-family: monospace; font-size: 6pt; opacity: 0.75; letter-spacing: 0.02em; }
+    .qr .qr-uuid { font-family: monospace; font-size: 5.2pt; opacity: 0.75; word-break: break-all; direction: ltr; }
     .qr .qr-hint { opacity: 0.8; }
-    .qr.bottom-left  { left: 12mm; bottom: 10mm; }
-    .qr.bottom-right { right: 12mm; bottom: 10mm; }
-    .qr.top-left     { left: 12mm; top: 10mm; }
-    .qr.top-right    { right: 12mm; top: 10mm; }
+    .qr.bottom-left  { left: 14mm; bottom: 14mm; }
+    .qr.bottom-right { right: 14mm; bottom: 14mm; }
+    .qr.top-left     { left: 14mm; top: 14mm; }
+    .qr.top-right    { right: 14mm; top: 14mm; }
 
     bdi { unicode-bidi: isolate; }
 </style>

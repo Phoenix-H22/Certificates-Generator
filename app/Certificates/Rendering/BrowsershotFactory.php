@@ -15,9 +15,14 @@ final class BrowsershotFactory
         return new self((array) config('certificates.browsershot', []));
     }
 
-    public function make(string $html): Browsershot
+    /**
+     * A configured Browsershot with no content yet. Callers load the page
+     * with setHtmlFromFilePath() so that self-hosted fonts can be referenced
+     * by file:// URL (Browsershot refuses file:// inside inline HTML).
+     */
+    public function make(): Browsershot
     {
-        $shot = Browsershot::html($html)
+        $shot = (new Browsershot)
             ->newHeadless()
             ->timeout((int) ($this->config['timeout'] ?? 90))
             ->showBackground()
@@ -25,6 +30,7 @@ final class BrowsershotFactory
                 '--disable-dev-shm-usage',
                 '--font-render-hinting=none',
                 '--disable-gpu',
+                '--allow-file-access-from-files',
             ])
             ->setEnvironmentOptions(['LANG' => 'ar_EG.UTF-8']);
 

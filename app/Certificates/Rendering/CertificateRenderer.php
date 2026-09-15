@@ -6,6 +6,8 @@ use App\Certificates\Exceptions\RenderFailedException;
 use App\Enums\TemplateDesign;
 use App\Models\Template;
 use Illuminate\Contracts\View\Factory as ViewFactory;
+use Spatie\Browsershot\Browsershot;
+use Spatie\TemporaryDirectory\TemporaryDirectory;
 use Throwable;
 
 /**
@@ -18,6 +20,9 @@ class CertificateRenderer
     public const PAGE_WIDTH_PX = 1123;
 
     public const PAGE_HEIGHT_PX = 794;
+
+    /** Max time to wait for fonts + fit-text before printing (ms). */
+    private const READY_TIMEOUT_MS = 15000;
 
     public function __construct(
         private readonly ViewFactory $views,
@@ -37,37 +42,25 @@ class CertificateRenderer
     /** @return string PDF bytes */
     public function pdf(CertificateData $data): string
     {
-        $html = $this->html($data, RenderMode::Pdf);
-
-        try {
-            return $this->browsershot->make($html)
+        return $this->withPage($this->html($data, RenderMode::Pdf), function (Browsershot $shot) {
+            return $shot
                 ->format('A4')
                 ->landscape()
                 ->margins(0, 0, 0, 0)
                 ->setOption('preferCSSPageSize', true)
-                ->waitUntilNetworkIdle()
-                ->waitForFunction('window.__certReady === true', null, 15000)
                 ->pdf();
-        } catch (Throwable $e) {
-            throw RenderFailedException::wrap($e, "PDF render failed for design {$data->design->value}:");
-        }
+        }, "PDF render failed for design {$data->design->value}:");
     }
 
     /** @return string PNG bytes, page-sized */
     public function thumbnail(CertificateData $data): string
     {
-        $html = $this->html($data, RenderMode::Thumbnail);
-
-        try {
-            return $this->browsershot->make($html)
+        return $this->withPage($this->html($data, RenderMode::Thumbnail), function (Browsershot $shot) {
+            return $shot
                 ->windowSize(self::PAGE_WIDTH_PX, self::PAGE_HEIGHT_PX)
                 ->deviceScaleFactor(1)
-                ->waitUntilNetworkIdle()
-                ->waitForFunction('window.__certReady === true', null, 15000)
                 ->screenshot();
-        } catch (Throwable $e) {
-            throw RenderFailedException::wrap($e, "Thumbnail render failed for design {$data->design->value}:");
-        }
+        }, "Thumbnail render failed for design {$data->design->value}:");
     }
 
     /** Convenience for the panel: sample thumbnail for a template. */
@@ -83,5 +76,32 @@ class CertificateRenderer
             TemplateDesign::cases(),
             fn (TemplateDesign $d) => $this->views->exists($d->view()),
         ));
+    }
+
+    /**
+     * Write the HTML to a temporary file, point Chromium at it, run the
+     * callback, and always clean up.
+     *
+     * @param  callable(Browsershot): string  $render
+     */
+    private function withPage(string $html, callable $render, string $context): string
+    {
+        $tmp = (new TemporaryDirectory(storage_path('app/render-tmp')))->create();
+
+        try {
+            $file = $tmp->path('certificate.html');
+            file_put_contents($file, $html);
+
+            $shot = $this->browsershot->make()
+                ->setHtmlFromFilePath($file)
+                ->waitUntilNetworkIdle()
+                ->waitForFunction('window.__certReady === true', null, self::READY_TIMEOUT_MS);
+
+            return $render($shot);
+        } catch (Throwable $e) {
+            throw RenderFailedException::wrap($e, $context);
+        } finally {
+            $tmp->delete();
+        }
     }
 }

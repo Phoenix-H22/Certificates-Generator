@@ -10,7 +10,7 @@ use chillerlan\QRCode\QROptions;
 /** Inline SVG QR codes: no GD, no external image, crisp at any print size. */
 final class QrCodeGenerator
 {
-    public function svg(string $content, string $colour = '#111111'): string
+    public function svg(string $content): string
     {
         $options = new QROptions([
             'outputType' => QROutputInterface::MARKUP_SVG,
@@ -21,18 +21,6 @@ final class QrCodeGenerator
             'svgAddXmlHeader' => false,
             'svgUseFillAttributes' => true,
             'drawLightModules' => false,
-            'moduleValues' => [
-                // dark modules
-                QRCode::M_DATA_DARK => $colour,
-                QRCode::M_FINDER_DARK => $colour,
-                QRCode::M_FINDER_DOT => $colour,
-                QRCode::M_ALIGNMENT_DARK => $colour,
-                QRCode::M_TIMING_DARK => $colour,
-                QRCode::M_FORMAT_DARK => $colour,
-                QRCode::M_VERSION_DARK => $colour,
-                QRCode::M_DARKMODULE => $colour,
-                QRCode::M_SEPARATOR_DARK => $colour,
-            ],
         ]);
 
         return (new QRCode($options))->render($content);
