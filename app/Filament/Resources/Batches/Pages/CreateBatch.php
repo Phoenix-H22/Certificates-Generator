@@ -281,7 +281,7 @@ class CreateBatch extends CreateRecord
         unset($data['headers'], $data['start_now'], $data['template_preview'], $data['sample_hint'], $data['headers_found']);
 
         $data['status'] = BatchStatus::Draft;
-        $data['deliver_via'] = array_values((array) ($data['deliver_via'] ?? []));
+        $data['deliver_via'] = DeliveryChannel::normalize((array) ($data['deliver_via'] ?? []));
         $data['fixed_values'] = (array) ($data['fixed_values'] ?? []);
         $data['column_map'] = (array) ($data['column_map'] ?? []);
         $data['created_by'] = auth()->id();

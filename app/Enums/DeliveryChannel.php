@@ -22,6 +22,28 @@ enum DeliveryChannel: string implements HasLabel
         return $this->label();
     }
 
+    /**
+     * Normalise a list that may mix enum instances and strings (Filament
+     * form state) into unique, valid channel values.
+     *
+     * @param  iterable<mixed>  $channels
+     * @return list<string>
+     */
+    public static function normalize(iterable $channels): array
+    {
+        $out = [];
+
+        foreach ($channels as $channel) {
+            $case = $channel instanceof self ? $channel : self::tryFrom(strtolower(trim((string) $channel)));
+
+            if ($case !== null && ! in_array($case->value, $out, true)) {
+                $out[] = $case->value;
+            }
+        }
+
+        return $out;
+    }
+
     /** @return array<string, string> */
     public static function options(): array
     {

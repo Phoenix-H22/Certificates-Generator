@@ -4,6 +4,7 @@ use App\Certificates\Exceptions\InvalidRowException;
 use App\Certificates\Pipeline\SingleCertificateIssuer;
 use App\Enums\BatchStatus;
 use App\Enums\CertificateStatus;
+use App\Enums\DeliveryChannel;
 use App\Enums\DeliveryStatus;
 use App\Jobs\DeliverCertificate;
 use App\Jobs\RenderCertificate;
@@ -22,7 +23,7 @@ it('creates a one-row batch and dispatches the render chain', function () {
         template: $template,
         fixedValues: ['event_name' => 'ندوة التعليم المستمر', 'event_date' => '2026-10-01'],
         recipient: ['name' => 'منى أحمد', 'title' => 'الأستاذة', 'email' => 'mona@example.com', 'phone' => '01098765432'],
-        channels: ['email', 'bogus'],
+        channels: [DeliveryChannel::Email, 'email', 'bogus'], // enum instances + strings, deduplicated
         userId: $admin->id,
     );
 

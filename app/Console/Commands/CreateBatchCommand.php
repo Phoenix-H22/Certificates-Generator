@@ -69,9 +69,7 @@ class CreateBatchCommand extends Command
             return self::FAILURE;
         }
 
-        $via = array_values(array_filter(
-            array_map(fn ($v) => DeliveryChannel::tryFrom(strtolower((string) $v))?->value, (array) $this->option('via')),
-        ));
+        $via = DeliveryChannel::normalize((array) $this->option('via'));
 
         $disk = Storage::disk(config('certificates.disk', 'certificates'));
         $storedPath = 'uploads/'.now()->format('Y/m').'/'.Str::uuid().'.xlsx';

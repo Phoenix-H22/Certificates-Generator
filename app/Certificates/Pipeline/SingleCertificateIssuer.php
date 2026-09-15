@@ -46,10 +46,7 @@ final class SingleCertificateIssuer
 
         $data = $this->merger->merge($template, $fixedValues, $recipient, $columnMap, 1);
 
-        $channels = array_values(array_filter(array_map(
-            fn ($c) => DeliveryChannel::tryFrom((string) $c)?->value,
-            $channels,
-        )));
+        $channels = DeliveryChannel::normalize($channels);
 
         $batch = Batch::create([
             'template_id' => $template->getKey(),
