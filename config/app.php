@@ -54,6 +54,9 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Comma-separated proxy IPs/CIDRs, or "*" when nginx/FastPanel fronts the app.
+    'trusted_proxies' => env('TRUSTED_PROXIES', ''),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

@@ -14,18 +14,37 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
-/** Public certificate verification: /verify?code=… and /verify/{identifier}. */
+/**
+ * Public certificate verification: /verify?code=… and /verify/{identifier}.
+ *
+ * Only two shapes are ever looked up: a UUID or a 10-symbol short code.
+ * Everything else is rejected before touching the database, and all
+ * queries go through Eloquent bindings (no raw SQL).
+ */
 class VerificationController extends Controller
 {
     public function search(Request $request): View|RedirectResponse
     {
-        $code = trim((string) $request->query('code', ''));
+        $validated = $request->validate([
+            'code' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        $code = trim((string) ($validated['code'] ?? ''));
+        $organisation = OrganisationSettings::current();
 
         if ($code === '') {
-            return view('verify.search', ['organisation' => OrganisationSettings::current()]);
+            return view('verify.search', ['organisation' => $organisation]);
         }
 
-        $identifier = Str::isUuid($code) ? strtolower($code) : (VerificationCode::canonical($code) ?? $code);
+        $identifier = self::canonicalIdentifier($code);
+
+        if ($identifier === null) {
+            return view('verify.search', [
+                'organisation' => $organisation,
+                'error' => 'الصيغة غير صحيحة. أدخل كود التحقق المكوّن من 10 رموز (مثل ABCDE-FGH23) أو رقم الشهادة الكامل.',
+                'previous' => Str::limit($code, 64, ''),
+            ]);
+        }
 
         return redirect()->route('verify.show', ['identifier' => $identifier]);
     }
@@ -33,12 +52,16 @@ class VerificationController extends Controller
     public function show(Request $request, string $identifier): View|Response
     {
         $organisation = OrganisationSettings::current();
-        $certificate = Certificate::byIdentifier($identifier)->with('template', 'batch')->first();
+        $canonical = self::canonicalIdentifier($identifier);
+
+        $certificate = $canonical === null
+            ? null
+            : Certificate::byIdentifier($canonical)->with('template', 'batch')->first();
 
         if ($certificate === null) {
             return response()->view('verify.show', [
                 'state' => 'not_found',
-                'identifier' => $identifier,
+                'identifier' => Str::limit($identifier, 64, ''),
                 'organisation' => $organisation,
                 'certificate' => null,
                 'details' => [],
@@ -49,11 +72,23 @@ class VerificationController extends Controller
 
         return view('verify.show', [
             'state' => $certificate->isRevoked() ? 'revoked' : ($certificate->isRendered() ? 'valid' : 'pending'),
-            'identifier' => $identifier,
+            'identifier' => $canonical,
             'organisation' => $organisation,
             'certificate' => $certificate,
             'details' => $this->details($certificate),
         ]);
+    }
+
+    /** Lower-case UUID or formatted short code, or null when the input is neither. */
+    public static function canonicalIdentifier(string $input): ?string
+    {
+        $input = trim($input);
+
+        if (Str::isUuid($input)) {
+            return strtolower($input);
+        }
+
+        return VerificationCode::canonical($input);
     }
 
     /** Count at most one verification per code + IP per hour. */

@@ -65,6 +65,20 @@ return [
     |--------------------------------------------------------------------------
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Public endpoint rate limits (per IP unless stated)
+    |--------------------------------------------------------------------------
+    */
+
+    'security' => [
+        'verify_per_minute' => (int) env('CERT_VERIFY_PER_MINUTE', 10),
+        'verify_per_hour' => (int) env('CERT_VERIFY_PER_HOUR', 60),
+        'verify_global_per_minute' => (int) env('CERT_VERIFY_GLOBAL_PER_MINUTE', 300),
+        'downloads_per_minute' => (int) env('CERT_DOWNLOADS_PER_MINUTE', 10),
+        'downloads_per_hour' => (int) env('CERT_DOWNLOADS_PER_HOUR', 60),
+    ],
+
     'queues' => [
         'render' => env('CERT_RENDER_QUEUE', 'render'),
         'deliver' => env('CERT_DELIVER_QUEUE', 'deliver'),

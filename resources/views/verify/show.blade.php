@@ -19,11 +19,11 @@
         @endforeach
     </div>
 
-    <p style="text-align:center"><span class="badge {{ $badge['class'] }}">{{ $badge['text'] }}</span></p>
+    <p class="center"><span class="badge {{ $badge['class'] }}">{{ $badge['text'] }}</span></p>
 
     @if ($certificate === null)
-        <p class="lead" style="text-align:center">لا توجد شهادة مسجلة بهذا الرقم: <bdi>{{ $identifier }}</bdi></p>
-        <p class="lead" style="text-align:center">تأكد من كتابة الكود كما هو مطبوع على الشهادة، أو امسح رمز QR مباشرة.</p>
+        <p class="lead center">لا توجد شهادة مسجلة بهذا الرقم: <bdi>{{ $identifier }}</bdi></p>
+        <p class="lead center">تأكد من كتابة الكود كما هو مطبوع على الشهادة، أو امسح رمز QR مباشرة.</p>
     @else
         <ul class="details">
             <li><span>اسم صاحب الشهادة</span><strong>{{ trim(($certificate->recipient_title ? $certificate->recipient_title . ' / ' : '') . $certificate->recipient_name) }}</strong></li>

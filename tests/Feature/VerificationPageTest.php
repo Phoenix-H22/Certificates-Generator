@@ -58,9 +58,10 @@ it('counts a verification once per hour per visitor', function () {
 
 it('is rate limited', function () {
     RateLimiter::clear('verify');
+    config()->set('certificates.security.verify_per_minute', 5);
     $certificate = Certificate::factory()->rendered()->create();
 
-    for ($i = 0; $i < 30; $i++) {
+    for ($i = 0; $i < 5; $i++) {
         $this->get(route('verify.show', $certificate->uuid))->assertOk();
     }
 

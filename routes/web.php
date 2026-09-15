@@ -6,17 +6,17 @@ use App\Http\Controllers\TemplatePreviewController;
 use App\Http\Controllers\VerificationController;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::view('/', 'welcome')->name('home')->middleware('security.headers');
 
 // v1 dashboard URL — everything lives in the Filament panel now.
 Route::redirect('/home', '/admin');
 
 /*
 |--------------------------------------------------------------------------
-| Public verification
+| Public verification (strict throttling + hardening headers)
 |--------------------------------------------------------------------------
 */
-Route::middleware('throttle:verify')->group(function () {
+Route::middleware(['security.headers', 'throttle:verify'])->group(function () {
     Route::get('/verify', [VerificationController::class, 'search'])->name('verify.search');
     Route::get('/verify/{identifier}', [VerificationController::class, 'show'])
         ->where('identifier', '[A-Za-z0-9 \-]{1,64}')
@@ -38,7 +38,7 @@ Route::get('/admin-preview/templates/{template}', TemplatePreviewController::cla
 |--------------------------------------------------------------------------
 */
 Route::get('/c/{certificate}', PublicDownloadController::class)
-    ->middleware(['signed', 'throttle:downloads'])
+    ->middleware(['security.headers', 'signed', 'throttle:downloads'])
     ->name('certificates.public-download');
 
 Route::middleware(['web', 'auth', 'can:admin'])->prefix('files')->name('files.')->group(function () {
