@@ -1,26 +1,32 @@
-/vendor/
-node_modules/
-npm-debug.log
-yarn-error.log
-
-# Laravel 4 specific
-bootstrap/compiled.php
-app/storage/
-
-# Laravel 5 & Lumen specific
-public/storage
-public/hot
-
-# Laravel 5 & Lumen specific with changed public path
-public_html/storage
-public_html/hot
-
-storage/*.key
+*.log
+.DS_Store
 .env
-Homestead.yaml
-Homestead.json
-/.vagrant
+.env.backup
+.env.production
+.phpactor.json
 .phpunit.result.cache
-config/snappy.php
-public/pdf-docs
-.idea/
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+Homestead.json
+Homestead.yaml
+Thumbs.db
+
+# Certificates Generator
+/storage/app/certificates/*
+!/storage/app/certificates/.gitignore
+/storage/app/render-tests
+/database/database.sqlite
+/.phpunit.cache
+.env.backup-v1

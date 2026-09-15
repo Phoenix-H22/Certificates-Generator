@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main, feat/**]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Pint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - uses: ramsey/composer-install@v3
+        with:
+          composer-options: --no-scripts
+      - run: vendor/bin/pint --test
+
+  test:
+    name: Tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: intl, gd, zip, mbstring, pdo_sqlite, sqlite3, fileinfo
+          coverage: none
+      - uses: ramsey/composer-install@v3
+      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan test --exclude-group=render
+
+  config-cache:
+    name: Config/route/view cache smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, gd, zip, mbstring, pdo_sqlite
+          coverage: none
+      - uses: ramsey/composer-install@v3
+      - run: cp .env.example .env && php artisan key:generate
+      - run: php artisan config:cache && php artisan route:cache && php artisan view:cache
+      - name: No env() calls outside config/
+        run: |
+          if grep -rn --include=*.php "env(" app routes resources database; then
+            echo "::error::env() must only be used inside config/"; exit 1
+          fi
+
+  render:
+    name: Real Chromium render
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, gd, zip, mbstring, pdo_sqlite, sqlite3, fileinfo
+          coverage: none
+      - uses: ramsey/composer-install@v3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Cache Puppeteer browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci
+      - run: npx puppeteer browsers install chrome
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libnss3 libatk-bridge2.0-0 libxkbcommon0 libgbm1 libasound2t64 libxdamage1 libxrandr2 libpango-1.0-0 libcups2 fonts-noto-core
+      - run: cp .env.example .env && php artisan key:generate
+      - run: RENDER_TESTS=1 CERT_NO_SANDBOX=true php artisan test --group=render
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rendered-samples
+          path: storage/app/render-tests/
+          if-no-files-found: ignore
