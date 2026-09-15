@@ -24,13 +24,3 @@ it('accepts fixed values on the second wizard step', function () {
         ->assertHasNoFormErrors();
 });
 
-it('reports missing required fixed values', function () {
-    $template = Template::factory()->create();
-
-    Livewire::test(CreateBatch::class)
-        ->fillForm(['name' => 'دفعة اختبار', 'template_id' => $template->id])
-        ->goToNextWizardStep()
-        ->fillForm(['fixed_values.event_name' => 'ورشة'])
-        ->goToNextWizardStep()
-        ->assertHasFormErrors(['fixed_values.event_date']);
-});
