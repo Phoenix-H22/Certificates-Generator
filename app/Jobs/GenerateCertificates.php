@@ -3,8 +3,8 @@
 namespace App\Jobs;
 
 use App\Mail\AdminErrorReportMail;
+use App\Mail\AdminFailedCertificateMail;
 use App\Mail\CertificateMail;
-use App\Mail\FailedCertificatesMail;
 use App\Models\Setting;
 use App\Services\WhatsAppService;
 use Exception;
@@ -39,6 +39,9 @@ class GenerateCertificates implements ShouldQueue
 
     /** Job directory for this execution */
     protected string $jobDir;
+
+    /** Total rows in the uploaded sheet */
+    protected int $totalRows = 0;
 
     public int $timeout = 3600; // 1 hour
     public int $tries   = 3;
@@ -104,6 +107,7 @@ class GenerateCertificates implements ShouldQueue
             $this->validateExcelColumns($rows);
 
             $rowCount = $rows->count();
+            $this->totalRows = $rowCount;
             Log::info('[CertificateJob] Excel file loaded', ['row_count' => $rowCount]);
 
             // Process rows in chunks
@@ -171,9 +175,13 @@ class GenerateCertificates implements ShouldQueue
             throw $e; // Re-throw to let queue handle retry
         }
     }
-    private function normalizePhone(?string $raw): string
+    private function normalizePhone(mixed $raw): string
     {
-        if (!$raw) return '';
+        if ($raw === null || $raw === '') {
+            return '';
+        }
+
+        $raw = (string) $raw;
 
         // strip everything except digits and plus
         $clean = preg_replace('/[^\d+]/', '', $raw);
@@ -183,12 +191,33 @@ class GenerateCertificates implements ShouldQueue
             return '+20'.substr($clean, 1);
         }
 
-// 10xxxxxxxx → +2010xxxxxxxx
+        // 10xxxxxxxx → +2010xxxxxxxx
         if (preg_match('/^1[0125]\d{8}$/', $clean)) {
             return '+20'.$clean;
         }
+
+        // 2010xxxxxxxx → +2010xxxxxxxx (Excel often stores country code without +)
+        if (preg_match('/^20(1[0125]\d{8})$/', $clean)) {
+            return '+'.$clean;
+        }
+
         // anything else – return as‑is; the validator will decide
         return $raw;
+    }
+
+    private function normalizeEmail(?string $raw): string
+    {
+        if ($raw === null || $raw === '') {
+            return '';
+        }
+
+        // Strip invisible Unicode (RTL/LTR marks, zero-width chars from Excel)
+        $email = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}\x{061C}\x{200E}\x{200F}]/u', '', $raw);
+        $email = trim($email);
+        // Remove internal whitespace (e.g. "user @ gmail.com")
+        $email = preg_replace('/\s+/', '', $email);
+
+        return $email;
     }
     /* ------------------------------------------------------------------ */
 
@@ -196,6 +225,7 @@ class GenerateCertificates implements ShouldQueue
     {
         // Normalize phone number
         $line['Phone'] = $this->normalizePhone($line['Phone'] ?? '');
+        $line['Email'] = $this->normalizeEmail($line['Email'] ?? '');
 
         // Validate required fields (Name, Title) - but allow invalid emails to pass
         // We'll generate the certificate anyway and handle invalid emails separately
@@ -207,7 +237,7 @@ class GenerateCertificates implements ShouldQueue
         ])->validate();
 
         // Check if email is valid (but don't fail if it's not)
-        $email = trim($line['Email'] ?? '');
+        $email = $line['Email'];
         $isEmailValid = !empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL);
 
         // Verify template still exists (edge case: deleted mid-execution)
@@ -377,51 +407,57 @@ class GenerateCertificates implements ShouldQueue
 
     private function sendAdminReport(): void
     {
-        if (empty($this->errors)) {
-            Log::info('[CertificateJob] No errors to report');
-            return;
-        }
+        $errorCount = count($this->errors);
+        $successCount = max(0, $this->totalRows - $errorCount);
+        $filePath = null;
+        $failedCerts = $this->getValidFailedCertificates();
 
-        $reportDir = public_path('error_reports');
-        try {
-            File::ensureDirectoryExists($reportDir);
-        } catch (Throwable $e) {
-            Log::error('[CertificateJob] Failed to create error reports directory', [
-                'error' => $e->getMessage(),
-            ]);
-            return;
-        }
+        if ($errorCount > 0) {
+            $reportDir = public_path('error_reports');
+            try {
+                File::ensureDirectoryExists($reportDir);
+            } catch (Throwable $e) {
+                Log::error('[CertificateJob] Failed to create error reports directory', [
+                    'error' => $e->getMessage(),
+                ]);
+                return;
+            }
 
-        $fileName = Str::uuid().'.xlsx';
-        $filePath = "{$reportDir}/{$fileName}";
+            $fileName = Str::uuid().'.xlsx';
+            $filePath = "{$reportDir}/{$fileName}";
 
-        try {
-            (new FastExcel(collect($this->errors)))->export($filePath);
-        } catch (Throwable $e) {
-            Log::error('[CertificateJob] Failed to export error report', [
-                'error' => $e->getMessage(),
-            ]);
-            return;
+            try {
+                (new FastExcel(collect($this->errors)))->export($filePath);
+            } catch (Throwable $e) {
+                Log::error('[CertificateJob] Failed to export error report', [
+                    'error' => $e->getMessage(),
+                ]);
+                return;
+            }
         }
 
         try {
             Mail::to(config('mail.admin_email'))
-                ->queue(new AdminErrorReportMail($filePath, count($this->errors)));
+                ->send(new AdminErrorReportMail(
+                    $this->totalRows,
+                    $successCount,
+                    $errorCount,
+                    $filePath,
+                    $failedCerts
+                ));
 
-            Log::info('[CertificateJob] Admin error report queued', [
-                'error_count' => count($this->errors),
+            Log::info('[CertificateJob] Admin completion report sent', [
+                'total_rows' => $this->totalRows,
+                'success_count' => $successCount,
+                'error_count' => $errorCount,
+                'failed_pdf_count' => count($failedCerts),
                 'report_path' => $filePath,
+                'admin_email' => config('mail.admin_email'),
             ]);
         } catch (Throwable $e) {
-            Log::error('[CertificateJob] Failed to queue admin error report', [
+            Log::error('[CertificateJob] Failed to send admin completion report', [
                 'error' => $e->getMessage(),
             ]);
-        }
-
-        // Optional: Clean up error report after sending
-        if (env('CLEANUP_ERROR_REPORTS', false)) {
-            // Schedule cleanup after email is sent
-            // For now, keep the report for reference
         }
     }
 
@@ -430,16 +466,46 @@ class GenerateCertificates implements ShouldQueue
      */
     private function sendFailedCertificatesToAdmin(): void
     {
-        if (empty($this->failedEmailCertificates)) {
+        $validCertificates = $this->getValidFailedCertificates();
+
+        if (empty($validCertificates)) {
             Log::info('[CertificateJob] No failed email certificates to send');
             return;
         }
 
-        // Filter out certificates where PDF doesn't exist
-        $validCertificates = [];
+        $adminEmail = config('mail.admin_email');
+        $sent = 0;
+
+        foreach ($validCertificates as $cert) {
+            try {
+                Mail::to($adminEmail)->send(new AdminFailedCertificateMail($cert));
+                $sent++;
+                Log::info('[CertificateJob] Failed certificate email sent to admin', [
+                    'row' => $cert['Row'] ?? null,
+                    'name' => $cert['Name'] ?? null,
+                    'admin_email' => $adminEmail,
+                ]);
+            } catch (Throwable $e) {
+                Log::error('[CertificateJob] Failed to send certificate to admin', [
+                    'row' => $cert['Row'] ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::info('[CertificateJob] Failed certificates admin emails complete', [
+            'sent' => $sent,
+            'total' => count($validCertificates),
+            'admin_email' => $adminEmail,
+        ]);
+    }
+
+    private function getValidFailedCertificates(): array
+    {
+        $valid = [];
         foreach ($this->failedEmailCertificates as $cert) {
             if (isset($cert['pdfPath']) && file_exists($cert['pdfPath'])) {
-                $validCertificates[] = $cert;
+                $valid[] = $cert;
             } else {
                 Log::warning('[CertificateJob] Failed certificate PDF not found', [
                     'name' => $cert['Name'] ?? 'Unknown',
@@ -449,25 +515,7 @@ class GenerateCertificates implements ShouldQueue
             }
         }
 
-        if (empty($validCertificates)) {
-            Log::warning('[CertificateJob] No valid certificate PDFs found for failed emails');
-            return;
-        }
-
-        try {
-            Mail::to(config('mail.admin_email'))
-                ->queue(new FailedCertificatesMail($validCertificates, count($validCertificates)));
-
-            Log::info('[CertificateJob] Failed certificates email queued to admin', [
-                'count' => count($validCertificates),
-                'admin_email' => config('mail.admin_email'),
-            ]);
-        } catch (Throwable $e) {
-            Log::error('[CertificateJob] Failed to queue failed certificates email to admin', [
-                'error' => $e->getMessage(),
-                'count' => count($validCertificates),
-            ]);
-        }
+        return $valid;
     }
 
     /**

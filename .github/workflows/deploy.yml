@@ -1,0 +1,84 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: FastPanel (asfeccert.phoenixtechs.tech)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Pull, install, and refresh Laravel
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: "22"
+          command_timeout: 20m
+          script: |
+            set -euo pipefail
+            export HOME=/var/www/phoenixtechs-asfeccert/data
+            export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${HOME}/bin:${HOME}/.local/bin"
+            export GIT_TERMINAL_PROMPT=0
+            export COMPOSER_HOME="${HOME}/.composer"
+
+            APP_DIR="/var/www/phoenixtechs-asfeccert/data/www/asfeccert.phoenixtechs.tech"
+            PHP="/opt/php82/bin/php"
+            COMPOSER="/usr/local/bin/composer"
+
+            cd "$APP_DIR"
+
+            echo "Fetching origin/main"
+            git remote set-url origin "https://github.com/Phoenix-H22/Certificates-Generator.git"
+            git fetch origin
+
+            OLD_HEAD="$(git rev-parse HEAD)"
+            if git reset --hard origin/main; then
+              echo "Reset to origin/main"
+            else
+              echo "Hard reset blocked; updating writable files only"
+              git diff --name-only HEAD origin/main | while IFS= read -r f; do
+                [ -z "$f" ] && continue
+                if [ -e "$f" ] && [ ! -w "$f" ]; then
+                  echo "skip unwritable $f"
+                  continue
+                fi
+                git checkout origin/main -- "$f"
+              done
+              git reset origin/main
+            fi
+            NEW_HEAD="$(git rev-parse HEAD)"
+            CHANGED="$(git diff --name-only "$OLD_HEAD" "$NEW_HEAD" || true)"
+
+            if printf '%s\n' "$CHANGED" | grep -qxE 'composer\.(json|lock)' \
+              || [ ! -f vendor/autoload.php ]; then
+              echo "Installing Composer dependencies"
+              "$PHP" "$COMPOSER" install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+            else
+              echo "Skipping composer install (no composer.json/lock changes)"
+            fi
+
+            if printf '%s\n' "$CHANGED" | grep -qE '^database/migrations/'; then
+              echo "Running migrations"
+              "$PHP" artisan migrate --force
+            else
+              echo "Skipping migrate (no new migration files)"
+            fi
+
+            echo "Clearing Laravel caches"
+            "$PHP" artisan optimize:clear
+            "$PHP" artisan queue:restart
+
+            echo "Deployed $(git log -1 --oneline)"
