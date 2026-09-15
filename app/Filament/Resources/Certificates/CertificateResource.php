@@ -89,7 +89,7 @@ class CertificateResource extends Resource
             Section::make('بيانات الشهادة')
                 ->schema([
                     TextEntry::make('data')
-                        ->label('')
+                        ->hiddenLabel()
                         ->state(fn (Certificate $r) => collect($r->data)->map(fn ($v, $k) => "{$k}: {$v}")->implode("\n"))
                         ->columnSpanFull(),
                 ])
