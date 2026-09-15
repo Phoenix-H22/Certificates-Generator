@@ -1,9 +1,13 @@
 name: CI
 
+# Disabled for now to save Actions minutes. Re-enable by restoring:
+#   on:
+#     push:
+#       branches: [main, feat/**]
+#     pull_request:
+# Until then it can still be run by hand from the Actions tab (workflow_dispatch).
 on:
-  push:
-    branches: [main, feat/**]
-  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
