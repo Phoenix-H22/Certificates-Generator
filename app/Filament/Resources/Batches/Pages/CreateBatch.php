@@ -63,11 +63,13 @@ class CreateBatch extends CreateRecord
                         ->live()
                         ->native(false)
                         ->afterStateUpdated(function (Set $set, ?string $state) {
-                            $set('fixed_values', []);
-                            $set('column_map', []);
+                            // null, not []: an empty PHP array becomes a JS array in the browser
+                            // and nested keys typed into it (fixed_values.event_date) are dropped.
+                            $set('fixed_values', null);
+                            $set('column_map', null);
                         }),
                     Placeholder::make('template_preview')
-                        ->label('')
+                        ->hiddenLabel()
                         ->content(function (Get $get) {
                             $template = Template::find($get('template_id'));
 
@@ -99,7 +101,7 @@ class CreateBatch extends CreateRecord
                 ->description('ارفع ملف Excel')
                 ->schema([
                     Placeholder::make('sample_hint')
-                        ->label('')
+                        ->hiddenLabel()
                         ->content(fn (Get $get) => new HtmlString(
                             'الصف الأول عناوين الأعمدة (الاسم، الصفة، البريد الإلكتروني، الهاتف'.self::rowFieldLabels(Template::find($get('template_id'))).'). '
                             .'يمكنك تنزيل نموذج جاهز من الزر أدناه.'
@@ -119,7 +121,7 @@ class CreateBatch extends CreateRecord
                             $set('headers', $headers);
 
                             $template = Template::find($get('template_id'));
-                            $set('column_map', $template && $headers !== [] ? app(ColumnMapper::class)->suggest($headers, $template) : []);
+                            $set('column_map', $template && $headers !== [] ? app(ColumnMapper::class)->suggest($headers, $template) : null);
                         }),
                     Hidden::make('headers')->dehydrated(false)->default([]),
                     Placeholder::make('headers_found')
@@ -163,7 +165,7 @@ class CreateBatch extends CreateRecord
     public static function fixedFieldInputs(?Template $template): array
     {
         if (! $template) {
-            return [Placeholder::make('no_template')->label('')->content('اختر القالب أولاً.')];
+            return [Placeholder::make('no_template')->hiddenLabel()->content('اختر القالب أولاً.')];
         }
 
         $inputs = [];
@@ -172,7 +174,7 @@ class CreateBatch extends CreateRecord
             $name = "fixed_values.{$field->key}";
 
             $input = match ($field->type) {
-                FieldType::Date => DatePicker::make($name)->native(false)->displayFormat('Y-m-d'),
+                FieldType::Date => DatePicker::make($name)->native(true)->format('Y-m-d'),
                 FieldType::Number => TextInput::make($name)->numeric(),
                 FieldType::Email => TextInput::make($name)->email(),
                 default => TextInput::make($name)->maxLength($field->maxLength ?? 255),
@@ -186,7 +188,7 @@ class CreateBatch extends CreateRecord
         }
 
         return $inputs === []
-            ? [Placeholder::make('no_fixed')->label('')->content('هذا القالب لا يحتاج قيماً ثابتة.')]
+            ? [Placeholder::make('no_fixed')->hiddenLabel()->content('هذا القالب لا يحتاج قيماً ثابتة.')]
             : [Grid::make(2)->schema($inputs)];
     }
 
@@ -197,7 +199,7 @@ class CreateBatch extends CreateRecord
     public static function columnMapInputs(?Template $template, array $headers): array
     {
         if (! $template || $headers === []) {
-            return [Placeholder::make('no_headers')->label('')->content('ارفع ملف Excel أولاً.')];
+            return [Placeholder::make('no_headers')->hiddenLabel()->content('ارفع ملف Excel أولاً.')];
         }
 
         $options = array_combine($headers, $headers);

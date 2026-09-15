@@ -13,6 +13,5 @@
         <button type="submit">تحقق</button>
     </form>
 
-    <p class="muted"><a href="{{ url('/admin') }}">دخول لوحة التحكم</a></p>
 </section>
 @endsection
