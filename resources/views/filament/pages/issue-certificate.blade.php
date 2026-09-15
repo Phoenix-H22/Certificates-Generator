@@ -1,8 +1,9 @@
 <x-filament-panels::page>
-    <form wire:submit="issue" class="space-y-6">
+    <form wire:submit="issue">
         {{ $this->form }}
 
-        <div class="flex items-center gap-3">
+        {{-- Filament's compiled CSS does not ship spacing utilities for app views, so use inline spacing. --}}
+        <div style="margin-top: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
             @foreach ($this->getFormActions() as $action)
                 {{ $action }}
             @endforeach
