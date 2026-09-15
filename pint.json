@@ -1,5 +1,8 @@
 {
     "preset": "laravel",
+    "exclude": [
+        "lang"
+    ],
     "rules": {
         "declare_strict_types": false,
         "ordered_imports": {

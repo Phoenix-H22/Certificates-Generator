@@ -35,3 +35,6 @@ Thumbs.db
 /public/css/filament
 /public/fonts/filament
 /public/js/filament
+
+# Local editor/agent config
+/.claude/
