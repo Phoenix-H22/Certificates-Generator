@@ -97,6 +97,40 @@ jobs:
             echo "Refreshing caches"
             "$PHP" artisan optimize:clear
             "$PHP" artisan optimize
+
+            echo "Restarting all queues (render, deliver, default)"
             "$PHP" artisan queue:restart
+
+            restart_via_supervisor() {
+              command -v supervisorctl >/dev/null 2>&1 || return 1
+              supervisorctl restart cg:* 2>/dev/null
+            }
+
+            if restart_via_supervisor; then
+              echo "Supervisor group cg:* restarted"
+            else
+              echo "Recycling app queue workers"
+              pids="$(pgrep -f "${APP_DIR}/artisan queue:work" || true)"
+              if [ -n "$pids" ]; then
+                echo "TERM pids: $pids"
+                # shellcheck disable=SC2086
+                kill -TERM $pids 2>/dev/null || true
+                sleep 3
+              fi
+
+              start_if_missing() {
+                local queues="$1"
+                local log="$2"
+                if pgrep -f "${APP_DIR}/artisan queue:work --queue=${queues}" >/dev/null 2>&1; then
+                  echo "Already running: ${queues}"
+                  return
+                fi
+                nohup "$PHP" artisan queue:work --queue="${queues}" --sleep=2 --tries=3 --timeout=180 --max-time=3600 >>"$log" 2>&1 &
+                echo "Started worker ${queues} pid $!"
+              }
+
+              start_if_missing "render" "${APP_DIR}/storage/logs/queue-render.log"
+              start_if_missing "deliver,default" "${APP_DIR}/storage/logs/queue-deliver.log"
+            fi
 
             echo "Deployed $(git log -1 --oneline)"
