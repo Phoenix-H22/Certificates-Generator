@@ -79,7 +79,7 @@ class BatchResource extends Resource
             Section::make('القيم الثابتة')
                 ->schema([
                     TextEntry::make('fixed_values')
-                        ->label('')
+                        ->hiddenLabel()
                         ->state(fn (Batch $r) => collect($r->fixed_values)->map(fn ($v, $k) => ($r->template?->fields_schema->get($k)?->label ?? $k).': '.$v)->implode("\n"))
                         ->placeholder('—'),
                 ])
