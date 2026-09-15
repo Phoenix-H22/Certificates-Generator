@@ -3,8 +3,8 @@
 namespace App\Certificates\Pipeline;
 
 use App\Certificates\Data\FieldSchema;
+use App\Certificates\Support\Spreadsheet;
 use App\Models\Template;
-use Rap2hpoutre\FastExcel\FastExcel;
 
 /** Builds the downloadable "fill this in" xlsx for a template. */
 final class SampleSheetBuilder
@@ -37,9 +37,9 @@ final class SampleSheetBuilder
             return $row;
         });
 
-        $path = tempnam(sys_get_temp_dir(), 'sample-sheet-').'.xlsx';
+        $path = Spreadsheet::tempFile('sample-sheet-');
 
-        (new FastExcel($rows))->export($path);
+        Spreadsheet::excel($rows)->export($path);
 
         return $path;
     }

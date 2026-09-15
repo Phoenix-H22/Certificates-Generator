@@ -2,7 +2,7 @@
 
 namespace Tests\Support;
 
-use Rap2hpoutre\FastExcel\FastExcel;
+use App\Certificates\Support\Spreadsheet;
 
 /** Builds small xlsx files for pipeline tests. */
 trait MakesSheets
@@ -13,9 +13,9 @@ trait MakesSheets
      */
     protected function makeSheet(array $rows): string
     {
-        $path = tempnam(sys_get_temp_dir(), 'sheet-').'.xlsx';
+        $path = Spreadsheet::tempFile('sheet-');
 
-        (new FastExcel(collect($rows)))->export($path);
+        Spreadsheet::excel(collect($rows))->export($path);
 
         return $path;
     }

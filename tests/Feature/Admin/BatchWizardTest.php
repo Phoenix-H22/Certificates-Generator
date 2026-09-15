@@ -23,4 +23,3 @@ it('accepts fixed values on the second wizard step', function () {
         ->goToNextWizardStep()
         ->assertHasNoFormErrors();
 });
-

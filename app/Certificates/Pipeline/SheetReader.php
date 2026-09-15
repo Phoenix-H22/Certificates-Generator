@@ -3,9 +3,9 @@
 namespace App\Certificates\Pipeline;
 
 use App\Certificates\Rendering\DataMerger;
+use App\Certificates\Support\Spreadsheet;
 use Illuminate\Support\Collection;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
-use Rap2hpoutre\FastExcel\FastExcel;
 use RuntimeException;
 
 /** Reads participant spreadsheets (xlsx) into header-keyed rows. */
@@ -21,7 +21,7 @@ final class SheetReader
     {
         $this->assertReadable($absolutePath);
 
-        $reader = new XlsxReader;
+        $reader = new XlsxReader(Spreadsheet::readerOptions());
         $reader->open($absolutePath);
 
         try {
@@ -59,7 +59,7 @@ final class SheetReader
     {
         $this->assertReadable($absolutePath);
 
-        $rows = (new FastExcel)->import($absolutePath);
+        $rows = Spreadsheet::excel()->import($absolutePath);
 
         $maxRows ??= (int) config('certificates.max_rows', 5000);
 

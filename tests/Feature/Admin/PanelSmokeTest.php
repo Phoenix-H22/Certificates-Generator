@@ -42,6 +42,7 @@ it('renders every panel page for an admin', function () {
         '/admin/certificates',
         "/admin/certificates/{$certificate->uuid}",
         '/admin/organisation-settings-page',
+        '/admin/issue-certificate',
     ] as $url) {
         $this->get($url)->assertOk();
     }

@@ -2,12 +2,12 @@
 
 namespace App\Certificates\Pipeline;
 
+use App\Certificates\Support\Spreadsheet;
 use App\Enums\CertificateStatus;
 use App\Enums\DeliveryStatus;
 use App\Models\Batch;
 use App\Models\Certificate;
 use Illuminate\Support\Facades\Storage;
-use Rap2hpoutre\FastExcel\FastExcel;
 
 /** Writes the per-row failure spreadsheet (validation / render / delivery). */
 final class ErrorReportBuilder
@@ -50,7 +50,7 @@ final class ErrorReportBuilder
         $relative = $batch->directory().'/errors-'.$batch->getKey().'.xlsx';
         $disk->makeDirectory($batch->directory());
 
-        (new FastExcel($rows))->export($disk->path($relative));
+        Spreadsheet::excel($rows)->export($disk->path($relative));
 
         return $relative;
     }
