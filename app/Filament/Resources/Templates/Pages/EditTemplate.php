@@ -7,6 +7,7 @@ use App\Jobs\GenerateTemplateThumbnail;
 use App\Models\Template;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 
 class EditTemplate extends EditRecord
@@ -28,6 +29,19 @@ class EditTemplate extends EditRecord
                 ->color('gray')
                 ->url(fn () => route('templates.preview', ['template' => $this->record, 'pdf' => 1]))
                 ->openUrlInNewTab(),
+            Action::make('refreshThumbnail')
+                ->label('تحديث صورة المعاينة')
+                ->icon('heroicon-o-arrow-path')
+                ->color('gray')
+                ->action(function () {
+                    GenerateTemplateThumbnail::dispatch($this->record);
+
+                    Notification::make()
+                        ->title('أُرسلت مهمة تحديث المعاينة')
+                        ->body('حدّث الصفحة بعد قليل لترى الشكل الجديد.')
+                        ->success()
+                        ->send();
+                }),
             DeleteAction::make(),
         ];
     }

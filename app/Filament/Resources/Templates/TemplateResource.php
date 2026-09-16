@@ -10,6 +10,7 @@ use App\Enums\TemplateDesign;
 use App\Filament\Resources\Templates\Pages\CreateTemplate;
 use App\Filament\Resources\Templates\Pages\EditTemplate;
 use App\Filament\Resources\Templates\Pages\ListTemplates;
+use App\Jobs\GenerateTemplateThumbnail;
 use App\Models\BrandAsset;
 use App\Models\Template;
 use BackedEnum;
@@ -24,6 +25,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ViewField;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -248,6 +250,19 @@ class TemplateResource extends Resource
                     ->icon('heroicon-o-eye')
                     ->url(fn (Template $r) => route('templates.preview', $r))
                     ->openUrlInNewTab(),
+                Action::make('refreshThumbnail')
+                    ->label('تحديث المعاينة')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('gray')
+                    ->action(function (Template $record) {
+                        GenerateTemplateThumbnail::dispatch($record);
+
+                        Notification::make()
+                            ->title('أُرسلت مهمة تحديث المعاينة')
+                            ->body('حدّث الصفحة بعد قليل لترى الشكل الجديد.')
+                            ->success()
+                            ->send();
+                    }),
                 EditAction::make(),
                 DeleteAction::make(),
             ]);
