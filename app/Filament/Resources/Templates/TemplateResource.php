@@ -129,12 +129,14 @@ class TemplateResource extends Resource
                                 ->label('الشعارات (بالترتيب)')
                                 ->multiple()
                                 ->options(fn () => BrandAsset::active()->ofType(BrandAssetType::Logo)->ordered()->pluck('name', 'id'))
+                                ->getOptionLabelsUsing(fn (array $values): array => BrandAsset::ofType(BrandAssetType::Logo)->whereIn('id', $values)->get()->mapWithKeys(fn (BrandAsset $a) => [$a->id => $a->name.($a->is_active ? '' : ' (موقوف)')])->all())
                                 ->helperText('حتى 4 شعارات تُعرض في أعلى الشهادة.')
                                 ->maxItems(4),
                             Select::make('layout_config.signatures')
                                 ->label('التوقيعات (بالترتيب، حتى 3)')
                                 ->multiple()
                                 ->options(fn () => BrandAsset::active()->ofType(BrandAssetType::Signature)->ordered()->get()->mapWithKeys(fn (BrandAsset $a) => [$a->id => trim(($a->role ? $a->role.' — ' : '').$a->name)]))
+                                ->getOptionLabelsUsing(fn (array $values): array => BrandAsset::ofType(BrandAssetType::Signature)->whereIn('id', $values)->get()->mapWithKeys(fn (BrandAsset $a) => [$a->id => trim(($a->role ? $a->role.' — ' : '').$a->name).($a->is_active ? '' : ' (موقوف)')])->all())
                                 ->maxItems(Template::MAX_SIGNATURES),
                             Section::make('الختم')
                                 ->columns(4)
@@ -142,6 +144,15 @@ class TemplateResource extends Resource
                                     Select::make('layout_config.stamp.asset_id')
                                         ->label('صورة الختم')
                                         ->options(fn () => BrandAsset::active()->ofType(BrandAssetType::Stamp)->ordered()->pluck('name', 'id'))
+                                        ->getOptionLabelUsing(function ($value): ?string {
+                                            if (! $value) {
+                                                return null;
+                                            }
+
+                                            $asset = BrandAsset::ofType(BrandAssetType::Stamp)->find($value);
+
+                                            return $asset ? $asset->name.($asset->is_active ? '' : ' (موقوف)') : null;
+                                        })
                                         ->placeholder('بدون ختم')
                                         ->live(),
                                     Select::make('layout_config.stamp.position')
@@ -161,6 +172,15 @@ class TemplateResource extends Resource
                                     Select::make('layout_config.background_asset_id')
                                         ->label('صورة خلفية (اختياري)')
                                         ->options(fn () => BrandAsset::active()->ofType(BrandAssetType::Background)->ordered()->pluck('name', 'id'))
+                                        ->getOptionLabelUsing(function ($value): ?string {
+                                            if (! $value) {
+                                                return null;
+                                            }
+
+                                            $asset = BrandAsset::ofType(BrandAssetType::Background)->find($value);
+
+                                            return $asset ? $asset->name.($asset->is_active ? '' : ' (موقوف)') : null;
+                                        })
                                         ->placeholder('بدون'),
                                 ]),
                         ]),

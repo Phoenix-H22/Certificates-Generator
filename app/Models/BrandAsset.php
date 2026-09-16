@@ -40,6 +40,16 @@ class BrandAsset extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        // Keep templates saveable: a deleted logo/signature/stamp left inside
+        // layout_config makes the template edit form fail validation
+        // ("value not in allowed list") and blocks saving.
+        static::deleting(function (self $asset) {
+            Template::detachBrandAsset($asset->id);
+        });
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
