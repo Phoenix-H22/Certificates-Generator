@@ -30,11 +30,19 @@ final readonly class FieldDefinition
     /** @param array<string, mixed> $data */
     public static function fromArray(array $data): self
     {
+        // Filament v4 enum Selects hand back enum instances (not strings) in
+        // repeater state, so accept both before the model cast re-validates.
+        $type = $data['type'] ?? FieldType::Text->value;
+        $type = $type instanceof FieldType ? $type : FieldType::from((string) $type);
+
+        $scope = $data['scope'] ?? FieldScope::Fixed->value;
+        $scope = $scope instanceof FieldScope ? $scope : FieldScope::from((string) $scope);
+
         return new self(
             key: (string) ($data['key'] ?? ''),
             label: (string) ($data['label'] ?? $data['key'] ?? ''),
-            type: FieldType::from((string) ($data['type'] ?? FieldType::Text->value)),
-            scope: FieldScope::from((string) ($data['scope'] ?? FieldScope::Fixed->value)),
+            type: $type,
+            scope: $scope,
             required: (bool) ($data['required'] ?? true),
             maxLength: isset($data['max_length']) && $data['max_length'] !== '' ? (int) $data['max_length'] : null,
             default: isset($data['default']) && $data['default'] !== '' ? (string) $data['default'] : null,
