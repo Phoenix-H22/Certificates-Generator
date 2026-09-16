@@ -217,6 +217,87 @@ class Template extends Model
         return (new Collection(array_map(fn (int $id) => $assets->get($id), $ids)))->filter()->values();
     }
 
+    /**
+     * Remove all references to a deleted brand asset from every template.
+     * Called from BrandAsset::deleting so edit forms never hold stale IDs
+     * (a stale signature/stamp ID makes the Filament Select fail validation
+     * with "value not in allowed list" and blocks saving the template).
+     */
+    public static function detachBrandAsset(int|string $assetId): void
+    {
+        $assetId = (int) $assetId;
+
+        if ($assetId <= 0) {
+            return;
+        }
+
+        self::query()->chunkById(100, function ($templates) use ($assetId) {
+            foreach ($templates as $template) {
+                $layout = $template->layout_config ?? [];
+                $changed = false;
+
+                foreach (['logos', 'signatures'] as $key) {
+                    $ids = array_map('intval', (array) data_get($layout, $key, []));
+
+                    if (in_array($assetId, $ids, true)) {
+                        $layout[$key] = array_values(array_diff($ids, [$assetId]));
+                        $changed = true;
+                    }
+                }
+
+                if ((int) data_get($layout, 'stamp.asset_id') === $assetId) {
+                    data_set($layout, 'stamp.asset_id', null);
+                    $changed = true;
+                }
+
+                if ((int) data_get($layout, 'background_asset_id') === $assetId) {
+                    data_set($layout, 'background_asset_id', null);
+                    $changed = true;
+                }
+
+                if ($changed) {
+                    $template->updateQuietly(['layout_config' => $layout]);
+                }
+            }
+        });
+    }
+
+    /**
+     * Strip IDs that no longer exist (deleted or wrong type) from a layout
+     * array. Inactive assets are kept so re-activating restores them; the
+     * form resolves their labels with a "(موقوف)" suffix.
+     *
+     * @param  array<string, mixed>  $layout
+     * @return array<string, mixed>
+     */
+    public static function pruneLayoutAssetReferences(array $layout): array
+    {
+        $logos = array_values(array_filter(array_map('intval', (array) data_get($layout, 'logos', []))));
+        $signatures = array_values(array_filter(array_map('intval', (array) data_get($layout, 'signatures', []))));
+        $stampId = (int) data_get($layout, 'stamp.asset_id');
+        $backgroundId = (int) data_get($layout, 'background_asset_id');
+
+        if ($logos !== []) {
+            $kept = BrandAsset::ofType(BrandAssetType::Logo)->whereIn('id', $logos)->pluck('id')->map(fn ($v) => (int) $v)->all();
+            $layout['logos'] = array_values(array_intersect($logos, $kept));
+        }
+
+        if ($signatures !== []) {
+            $kept = BrandAsset::ofType(BrandAssetType::Signature)->whereIn('id', $signatures)->pluck('id')->map(fn ($v) => (int) $v)->all();
+            $layout['signatures'] = array_values(array_intersect($signatures, $kept));
+        }
+
+        if ($stampId > 0 && ! BrandAsset::ofType(BrandAssetType::Stamp)->where('id', $stampId)->exists()) {
+            data_set($layout, 'stamp.asset_id', null);
+        }
+
+        if ($backgroundId > 0 && ! BrandAsset::ofType(BrandAssetType::Background)->where('id', $backgroundId)->exists()) {
+            data_set($layout, 'background_asset_id', null);
+        }
+
+        return $layout;
+    }
+
     /* ----------------------------------------------------------------- */
     /*  Fields */
     /* ----------------------------------------------------------------- */
