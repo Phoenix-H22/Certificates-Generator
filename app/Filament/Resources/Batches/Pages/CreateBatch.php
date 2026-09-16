@@ -147,7 +147,9 @@ class CreateBatch extends CreateRecord
                         ->options(DeliveryChannel::class)
                         ->descriptions([
                             DeliveryChannel::Email->value => 'الشهادة مرفقة PDF مع رابط التحقق',
-                            DeliveryChannel::WhatsApp->value => 'يتطلب ضبط بوابة الواتساب في ملف .env',
+                            DeliveryChannel::WhatsApp->value => config('services.whatsapp.enabled', true)
+                                ? 'يتطلب ضبط بوابة الواتساب في ملف .env'
+                                : 'موقوف حاليًا (WHATSAPP_ENABLED=false) — سيُسجَّل "تم التخطي"',
                         ])
                         ->default([DeliveryChannel::Email->value])
                         ->helperText('اتركها فارغة لتوليد الملفات فقط وتنزيلها كـ ZIP.'),

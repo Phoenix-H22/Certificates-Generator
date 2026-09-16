@@ -121,3 +121,22 @@ it('does nothing for certificates that are not rendered', function () {
     Mail::assertNothingSent();
     expect($certificate->fresh()->email_status)->toBe(DeliveryStatus::NotRequested);
 });
+
+it('skips WhatsApp without calling the gateway when the channel is disabled', function () {
+    Http::fake();
+
+    config()->set('services.whatsapp.enabled', false);
+
+    $certificate = deliverable();
+
+    runDelivery($certificate);
+
+    $certificate->refresh();
+
+    Http::assertNothingSent();
+
+    expect($certificate->whatsapp_status)->toBe(DeliveryStatus::Skipped)
+        ->and($certificate->whatsapp_error)->toContain('WHATSAPP_ENABLED')
+        ->and($certificate->batch->whatsapp_failed_count)->toBe(0)
+        ->and($certificate->email_status)->toBe(DeliveryStatus::Sent);
+});

@@ -35,7 +35,10 @@ return [
     'admin_password' => env('ADMIN_PASSWORD'),
 
     // Form-POST WhatsApp gateway: appkey / authkey / to / message / file (URL).
+    // Set WHATSAPP_ENABLED=false to pause the channel: jobs record "skipped"
+    // instead of calling the gateway (no errors, no retries).
     'whatsapp' => [
+        'enabled' => filter_var(env('WHATSAPP_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         'url' => env('WHATSAPP_APP_URL'),
         'app_key' => env('WHATSAPP_APP_KEY'),
         'auth_key' => env('WHATSAPP_APP_SECRET'),

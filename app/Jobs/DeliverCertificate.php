@@ -110,6 +110,12 @@ class DeliverCertificate implements ShouldQueue
 
     private function whatsapp(Certificate $certificate, WhatsAppSender $sender): void
     {
+        if (! $sender->isEnabled()) {
+            $this->record($certificate, DeliveryChannel::WhatsApp, DeliveryStatus::Skipped, 'قناة الواتساب موقوفة (WHATSAPP_ENABLED=false)');
+
+            return;
+        }
+
         if (! $certificate->phone) {
             $this->record($certificate, DeliveryChannel::WhatsApp, DeliveryStatus::Skipped, 'لا يوجد رقم هاتف صالح');
 

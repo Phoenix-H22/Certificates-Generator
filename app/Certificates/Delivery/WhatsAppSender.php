@@ -27,11 +27,20 @@ final class WhatsAppSender
         return ! empty($this->config['url']) && ! empty($this->config['app_key']) && ! empty($this->config['auth_key']);
     }
 
+    public function isEnabled(): bool
+    {
+        return filter_var($this->config['enabled'] ?? true, FILTER_VALIDATE_BOOLEAN);
+    }
+
     /**
      * @throws DeliveryException on transient (retryable) failures
      */
     public function send(Certificate $certificate): DeliveryResult
     {
+        if (! $this->isEnabled()) {
+            return DeliveryResult::failed('WhatsApp channel is disabled (WHATSAPP_ENABLED=false).');
+        }
+
         if (! $this->isConfigured()) {
             return DeliveryResult::failed('WhatsApp gateway is not configured (WHATSAPP_APP_URL / KEY / SECRET).');
         }
