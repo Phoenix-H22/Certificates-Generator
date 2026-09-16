@@ -66,3 +66,26 @@ it('uses sensible defaults for type and scope', function () {
         ->and($field->scope)->toBe(FieldScope::Fixed)
         ->and($field->required)->toBeTrue();
 });
+
+it('accepts enum instances for type and scope (Filament v4 repeater state)', function () {
+    // Filament enum Selects hand back enum objects; saving a template must
+    // not crash with "could not be converted to string".
+    $field = FieldDefinition::fromArray([
+        'key' => 'event_name',
+        'label' => 'اسم الفعالية',
+        'type' => FieldType::Date,
+        'scope' => FieldScope::Row,
+    ]);
+
+    expect($field->type)->toBe(FieldType::Date)
+        ->and($field->scope)->toBe(FieldScope::Row);
+
+    $schema = FieldSchema::fromArray([[
+        'key' => 'event_name',
+        'label' => 'x',
+        'type' => FieldType::Text,
+        'scope' => FieldScope::Fixed,
+    ]]);
+
+    expect($schema)->toHaveCount(1);
+});
