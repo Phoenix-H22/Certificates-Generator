@@ -63,10 +63,9 @@ class CreateBatch extends CreateRecord
                         ->live()
                         ->native(false)
                         ->afterStateUpdated(function (Set $set, ?string $state) {
-                            // null, not []: an empty PHP array becomes a JS array in the browser
-                            // and nested keys typed into it (fixed_values.event_date) are dropped.
-                            $set('fixed_values', null);
-                            $set('column_map', null);
+                            $template = Template::find($state);
+                            $set('fixed_values', self::blankFixedValues($template));
+                            $set('column_map', self::blankColumnMap($template));
                         }),
                     Placeholder::make('template_preview')
                         ->hiddenLabel()
@@ -162,6 +161,38 @@ class CreateBatch extends CreateRecord
     }
 
     /* ----------------------------------------------------------------- */
+
+    /*
+     * Nested form state (fixed_values, column_map, recipient) must be reset to an
+     * associative array that already holds every key, so it reaches the browser as a
+     * JS object. Neither alternative works: [] becomes a JS array (keys typed into it
+     * are dropped when serialized) and null makes Livewire's nested dataSet() throw.
+     * Either way the inputs look filled but the server sees them empty ("required").
+     */
+
+    /** @return array<string, mixed> */
+    public static function blankFixedValues(?Template $template): array
+    {
+        $state = [];
+
+        foreach ($template?->fixedFields() ?? [] as $field) {
+            $state[$field->key] = $field->default;
+        }
+
+        return $state;
+    }
+
+    /** @return array<string, null> */
+    public static function blankColumnMap(?Template $template): array
+    {
+        $state = array_fill_keys(array_keys(FieldSchema::CORE_FIELDS), null);
+
+        foreach ($template?->rowFields() ?? [] as $field) {
+            $state[$field->key] = null;
+        }
+
+        return $state;
+    }
 
     /** @return array<int, Component> */
     public static function fixedFieldInputs(?Template $template): array

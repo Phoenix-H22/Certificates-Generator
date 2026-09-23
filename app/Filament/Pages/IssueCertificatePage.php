@@ -65,9 +65,11 @@ class IssueCertificatePage extends Page
                             ->required()
                             ->live()
                             ->native(false)
-                            ->afterStateUpdated(function (Set $set) {
-                                $set('fixed_values', null);
-                                $set('recipient', null);
+                            // Reset to keyed arrays, never null or [] (see CreateBatch::blankFixedValues()).
+                            ->afterStateUpdated(function (Set $set, ?string $state) {
+                                $template = Template::find($state);
+                                $set('fixed_values', CreateBatch::blankFixedValues($template));
+                                $set('recipient', self::blankRecipient($template));
                             }),
                         Group::make()
                             ->schema(fn (Get $get) => CreateBatch::fixedFieldInputs(Template::find($get('template_id')))),
@@ -94,6 +96,18 @@ class IssueCertificatePage extends Page
                     ]),
             ])
             ->statePath('data');
+    }
+
+    /** @return array<string, mixed> */
+    public static function blankRecipient(?Template $template): array
+    {
+        $state = ['name' => null, 'title' => null, 'email' => null, 'phone' => null];
+
+        foreach ($template?->rowFields() ?? [] as $field) {
+            $state[$field->key] = $field->default;
+        }
+
+        return $state;
     }
 
     /** @return array<int, Component> */
