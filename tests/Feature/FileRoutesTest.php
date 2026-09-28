@@ -5,6 +5,7 @@ use App\Models\Batch;
 use App\Models\Certificate;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 beforeEach(function () {
     Storage::fake('certificates');
@@ -55,4 +56,20 @@ it('lets admins download batch files and blocks everyone else', function () {
     $this->get(route('files.batch.errors', $batch))->assertOk();
     $this->get(route('files.batch.source', $batch))->assertOk();
     $this->get(route('files.certificate.pdf', $certificate))->assertOk()->assertHeader('content-type', 'application/pdf');
+});
+
+it('sends batch files from disk in chunks so large archives do not exhaust memory', function () {
+    $batch = Batch::factory()->create(['zip_path' => 'batches/1/certificates-1.zip', 'error_report_path' => 'batches/1/errors-1.xlsx', 'source_path' => 'uploads/x.xlsx']);
+    Storage::disk('certificates')->put($batch->zip_path, str_repeat('z', 4096));
+    Storage::disk('certificates')->put($batch->error_report_path, 'xlsx');
+    Storage::disk('certificates')->put($batch->source_path, 'xlsx');
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    $zip = $this->get(route('files.batch.zip', $batch));
+    $zip->assertOk()->assertDownload('certificates-batch-'.$batch->getKey().'.zip');
+    expect($zip->baseResponse)->toBeInstanceOf(BinaryFileResponse::class);
+
+    expect($this->get(route('files.batch.errors', $batch))->baseResponse)->toBeInstanceOf(BinaryFileResponse::class);
+    expect($this->get(route('files.batch.source', $batch))->baseResponse)->toBeInstanceOf(BinaryFileResponse::class);
 });
