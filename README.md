@@ -1,8 +1,33 @@
-# مولّد الشهادات — ASFEC Certificates Generator
+# ASFEC Certificates Generator
+
+A Laravel 12 and Filament v4 application for issuing Arabic certificates in bulk. Administrators import participant data from Excel, select a template, and generate PDF certificates through Chromium. Each certificate has a QR code and a public verification page.
+
+## Engineering overview
+
+- **Queued pipeline:** spreadsheet parsing → certificate rendering → delivery → batch finalization.
+- **Rendering:** Blade templates and Browsershot/Chromium, with Arabic typography and PDF/PNG output.
+- **Batch operations:** ZIP exports, spreadsheet error reports, and completion notifications.
+- **Access:** public certificate verification, signed public downloads, and authenticated admin downloads.
+- **Delivery:** email and WhatsApp channels, with batch and certificate status tracking.
+
+Rendering jobs include retry backoff and overlap protection. Batch finalization distinguishes completed batches from batches completed with errors.
+
+| Responsibility | Source |
+| --- | --- |
+| Batch orchestration | [`app/Jobs/ProcessBatch.php`](app/Jobs/ProcessBatch.php) |
+| Rendering and retry handling | [`app/Jobs/RenderCertificate.php`](app/Jobs/RenderCertificate.php) |
+| HTML/PDF/PNG rendering | [`app/Certificates/Rendering/CertificateRenderer.php`](app/Certificates/Rendering/CertificateRenderer.php) |
+| ZIP and error-report finalization | [`app/Jobs/FinalizeBatch.php`](app/Jobs/FinalizeBatch.php) |
+| Verification and download routes | [`routes/web.php`](routes/web.php) |
+
+See [architecture](docs/ARCHITECTURE.md), [deployment](docs/DEPLOYMENT.md), and the [Arabic user guide](docs/user-guide.html). Arabic setup and usage instructions follow.
+
+---
+
+## مولّد الشهادات — دليل التشغيل
 
 نظام لإصدار شهادات شكر وحضور عربية احترافية بالجملة: يرفع الأدمن ملف Excel بأسماء المشاركين، يختار تصميم القالب، فيتولّى النظام توليد ملف PDF لكل شهادة عبر Chromium، ويرسلها بالبريد الإلكتروني و/أو واتساب، ويتيح التحقق من صحتها عبر رمز QR.
 
-*English summary at the bottom.*
 
 ## المميزات
 
